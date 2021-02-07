@@ -16,12 +16,38 @@
 #error "Do not #include <ctype.h>. You will get a ZERO."
 #endif
 
+// My own functions
+#include "helpingFunctions.h"
+
 int main(int argc, char **argv)
-{
+{    
+    // printf("%d\n", validateNumberString("9874"));
+    // printf("%d\n", stringToInteger("10"));
+    // printf("%d\n", stringToInteger("487"));
+    // printf("%d\n", stringToInteger("12321"));
+    // printf("%d\n", stringToInteger("10"));
+    // printf("%d\n", stringToInteger("0"));
+    // printf("%d\n", stringToInteger("1"));
+    // printf("%d\n", stringToInteger("123"));
+    // printf("%d\n", stringToInteger("89765"));
+    // printf("%d\n", compareString("Hello World", "Hello Worid"));
+    // printf("%d\n", compareString(*(argv+ 2), "birp"));
+    
+    // Testing the function for reading pgm
+    
+    
+    
     if(validargs(argc, argv))
+    {
         USAGE(*argv, EXIT_FAILURE);
+    }
     if(global_options & HELP_OPTION)
+    {
         USAGE(*argv, EXIT_SUCCESS);
+    }
+    
+    
+    
     // TO BE IMPLEMENTED
     return EXIT_FAILURE;
 }
