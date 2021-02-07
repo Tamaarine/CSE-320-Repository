@@ -34,8 +34,11 @@ int main(int argc, char **argv)
     // printf("%d\n", compareString(*(argv+ 2), "birp"));
     
     // Testing the function for reading pgm
+    int result = pgm_to_ascii(stdin, stdout);
     
     
+    // Initilize global_options to just 0
+    global_options = 0;
     
     if(validargs(argc, argv))
     {
@@ -46,10 +49,8 @@ int main(int argc, char **argv)
         USAGE(*argv, EXIT_SUCCESS);
     }
     
-    
-    
     // TO BE IMPLEMENTED
-    return EXIT_FAILURE;
+    return EXIT_SUCCESS;
 }
 
 /*

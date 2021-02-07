@@ -160,3 +160,11 @@ int integerTo2Complement(int num)
     // And donne return the output
     return output;
 }
+
+void printRasterArray(unsigned char * raster, size_t size)
+{
+    for(int i=0;i<size;i++)
+    {
+        printf("%c ", *(raster + i));
+    }
+}

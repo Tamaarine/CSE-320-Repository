@@ -24,8 +24,69 @@ int birp_to_birp(FILE *in, FILE *out) {
 }
 
 int pgm_to_ascii(FILE *in, FILE *out) {
-    // TO BE IMPLEMENTED
-    return -1;
+    // Try this one first to see if I can get a hang of this
+    // Call img_read_header to get the information about the pgm first
+    int width = 0;
+    int height = 0;
+    int size = 0;
+    
+    int result = img_read_pgm(in, &width, &height, raster_data, RASTER_SIZE_MAX);
+    // printf("Result from reading pgm %d\n", result);
+    
+    // If reading the pgm went wrong -> giving us -1 then we have to also return -1 without
+    // printing anything from the raster_data
+    if(result == -1)
+    {
+        return -1;
+    }
+    
+    // Then we have to print the raster_data to get it to an ascii art
+    // here is the folowing conversion
+    // 0 - 63 will be ' ' (space)
+    // 64 - 127 will be '.'
+    // 128 - 191 will be '*'
+    // 192 - 255 will be '@'
+    int totalSize = width * height; // The total size of the array
+    
+    // We will loop through the entire raster array
+    // then for every row we haev printed we will print the data to a new line
+    for(int i=0;i<totalSize;i++)
+    {
+        // Getting the currentChar that we are reading
+        unsigned char currentChar = *(raster_data + i);
+        
+        // We also have to print newline if we finish printing one row
+        // meaning that i is a multiple of 8 hence we have to print a newline
+        if(i != 0 && i % 8 == 0)
+        {
+            printf("\n");
+        }
+        
+        // Then we must compare to see which mapping we are doing
+        if(currentChar >= 0 && currentChar <= 63)
+        {
+            // Print a white space
+            printf(" ");
+        }
+        else if(currentChar >= 64 && currentChar <= 127)
+        {
+            // Print a period
+            printf(".");
+        }
+        else if(currentChar >= 128 && currentChar)
+        {
+            // Print an asterisk
+            printf("*");
+        }
+        else if(currentChar >= 192 && currentChar <= 255)
+        {
+            // Print @
+            printf("@");
+        }
+    }
+    
+    // If we got here then we have printed everything hence we can return 0 for sucessful
+    return 0;
 }
 
 int birp_to_ascii(FILE *in, FILE *out) {
@@ -455,11 +516,6 @@ int validargs(int argc, char **argv) {
     global_options = global_options | transformationValue;
     global_options = global_options | outputValue;
     global_options = global_options | inputValue;
-    
-    int width = 0;
-    int height = 0;
-    int arr[];
-    img_read_pgm(stdin, &width, &height, arr, 2);
     
     // Return 0 because if we are here then everything is validated
     return 0;
