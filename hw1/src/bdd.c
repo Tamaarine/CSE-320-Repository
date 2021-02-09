@@ -72,7 +72,7 @@ int bdd_lookup(int level, int left, int right) {
         free_node_counter ++;
         
         // Then we also have to insert it into the hash table with the address of the BDD NODE we just created
-        *(bdd_hash_map + hashedIndex) = &toInsert;
+        *(bdd_hash_map + hashedIndex) = &(*(bdd_nodes + indexOutput));
         
         BDD_NODE * nodePtr2 = *(bdd_hash_map + hashedIndex);
         printf("Function: nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
@@ -99,10 +99,12 @@ int bdd_lookup(int level, int left, int right) {
             // Divide by the size of the BDD_NODE
             // printf("nodePtr using & is %d\n", &nodePtr);
             
-            int address_diff = nodePtr - &(*bdd_nodes);
+            BDD_NODE * ptr1 = &*bdd_nodes; // Pointer to the base_address
+                    
+            // Have to figure out how to calculate the index
+            int address_diff = nodePtr - ptr1;
             
-            // Then we just have to divide address_diff by the size of the struct
-            address_diff = address_diff / sizeof(BDD_NODE);
+            // Don't need to divide by sizeof struct because it is already done for us in the subtraction
             
             // Then that's it that is the index where the entry is located in the array we can just return
             return address_diff;
@@ -127,11 +129,12 @@ int bdd_lookup(int level, int left, int right) {
                 // If this is true then we have got a match
                 if(helpingPtr->level == level && helpingPtr->left == left && helpingPtr->right == right)
                 {
+                    BDD_NODE * ptr1 = &*bdd_nodes; // Pointer to the base_address
+                    
                     // Have to figure out how to calculate the index
-                    int address_diff = helpingPtr - &(*bdd_nodes);
+                    int address_diff = helpingPtr - ptr1;
             
-                    // Then we just have to divide address_diff by the size of the struct
-                    address_diff = address_diff / sizeof(BDD_NODE);
+                    // Don't need to divide
                     
                     // Then that's it that is the index where the entry is located in the array we can just return
                     return address_diff;
@@ -154,7 +157,7 @@ int bdd_lookup(int level, int left, int right) {
                     free_node_counter ++;
                     
                     // Then we also set our helpingPtr to the address of the new node we just created
-                    helpingPtr = &toInsert;
+                    helpingPtr = &(*(bdd_nodes + indexOutput));
                     
                     // And we can finally return
                     return indexOutput;

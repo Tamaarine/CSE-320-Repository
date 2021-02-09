@@ -42,18 +42,20 @@ int main(int argc, char **argv)
     int result1 = bdd_lookup(1, 4, 8);
     printf("%d\n", result1);
     
-    // int result2 = bdd_lookup(5, 100, 24);
-    // printf("%d\n", result2);
+    int result2 = bdd_lookup(5, 100, 24);
+    printf("%d\n", result2);
+    
+    int result3 = bdd_lookup(1, 4, 8);
+    printf("Result %d\n", result3);
     
     BDD_NODE * nodePtr2 = *(bdd_hash_map + hashFunction(4,8));
     printf("nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
 
-    // BDD_NODE * nodePtr3 = *(bdd_hash_map + hashFunction(100,24));
-    // printf("nodePtr3 is %d %d %d\n", nodePtr3->level, nodePtr3->left, nodePtr3->right);
-
+    BDD_NODE * nodePtr3 = *(bdd_hash_map + hashFunction(100,24));
+    printf("nodePtr3 is %d %d %d\n", nodePtr3->level, nodePtr3->left, nodePtr3->right);
     
-    // int result3 = bdd_lookup(1, 4, 8);
-    // printf("%d\n", result3);
+    BDD_NODE * nodePtr4 = *(bdd_hash_map + hashFunction(4,8));
+    printf("nodePtr3 is %d %d %d\n", nodePtr4->level, nodePtr4->left, nodePtr4->right);
     
     
     // Initilize global_options to just 0
