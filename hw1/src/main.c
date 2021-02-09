@@ -34,7 +34,26 @@ int main(int argc, char **argv)
     // printf("%d\n", compareString(*(argv+ 2), "birp"));
     
     // Testing the function for reading pgm
-    int result = pgm_to_ascii(stdin, stdout);
+    // int result = pgm_to_ascii(stdin, stdout);
+    
+    initialize_bdd_hash_map();
+    
+    // Need to test bdd_lookup
+    int result1 = bdd_lookup(1, 4, 8);
+    printf("%d\n", result1);
+    
+    // int result2 = bdd_lookup(5, 100, 24);
+    // printf("%d\n", result2);
+    
+    BDD_NODE * nodePtr2 = *(bdd_hash_map + hashFunction(4,8));
+    printf("nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
+
+    // BDD_NODE * nodePtr3 = *(bdd_hash_map + hashFunction(100,24));
+    // printf("nodePtr3 is %d %d %d\n", nodePtr3->level, nodePtr3->left, nodePtr3->right);
+
+    
+    // int result3 = bdd_lookup(1, 4, 8);
+    // printf("%d\n", result3);
     
     
     // Initilize global_options to just 0

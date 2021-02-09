@@ -1,6 +1,8 @@
 #include "helpingFunctions.h"
 #include <stdio.h>
 
+int free_node_counter = 256;
+
 /**
  * This function will take two Strings and compare them and see if they are equal or not
  * 
@@ -161,10 +163,38 @@ int integerTo2Complement(int num)
     return output;
 }
 
+/**
+ * This function will be used for mapping the given node specifications to an index
+ * in the hash table. That's it nothin else we will handle the linear probing
+ * in the returned function after
+ */
+int hashFunction(int left, int right)
+{
+    // The hash function is simple we take left and we take right
+    // add 48 to both of them and multiply by 997 add them together as a sum
+    int leftValue = (left + 48) * 997;
+    int rightValue = (right + 48) * 997;
+    
+    // Then we add them together as a sum
+    int sum = leftValue + rightValue;
+    
+    // Finally the output of the function is just sum mod by the hashTable size
+    return sum % BDD_HASH_SIZE;
+}
+
 void printRasterArray(unsigned char * raster, size_t size)
 {
     for(int i=0;i<size;i++)
     {
         printf("%c ", *(raster + i));
+    }
+}
+
+
+void initialize_bdd_hash_map()
+{
+    for(int i=0;i<BDD_HASH_SIZE;i++)
+    {
+        *(bdd_hash_map + i) = NULL;
     }
 }

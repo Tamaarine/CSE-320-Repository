@@ -1,5 +1,7 @@
 #include "const.h"
 
+extern int free_node_counter;
+
 /**
  * This function will take two Strings and compare them and see if they are equal or not
  */
@@ -26,4 +28,14 @@ int validateNumberString(char * str);
  */
 int integerTo2Complement(int num);
 
+/**
+ * This function will be used for mapping the given node specifications to an index
+ * in the hash table. That's it nothin else we will handle the linear probing
+ * in the returned function after
+ */
+int hashFunction(int left, int right);
+
 void printRasterArray(unsigned char * raster, size_t size);
+
+void initialize_bdd_hash_map();
+

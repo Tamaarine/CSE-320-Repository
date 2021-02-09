@@ -57,7 +57,7 @@ int pgm_to_ascii(FILE *in, FILE *out) {
         
         // We also have to print newline if we finish printing one row
         // meaning that i is a multiple of 8 hence we have to print a newline
-        if(i != 0 && i % 8 == 0)
+        if(i != 0 && i % width == 0)
         {
             printf("\n");
         }
@@ -73,7 +73,7 @@ int pgm_to_ascii(FILE *in, FILE *out) {
             // Print a period
             printf(".");
         }
-        else if(currentChar >= 128 && currentChar)
+        else if(currentChar >= 128 && currentChar <= 191)
         {
             // Print an asterisk
             printf("*");
@@ -84,6 +84,9 @@ int pgm_to_ascii(FILE *in, FILE *out) {
             printf("@");
         }
     }
+    
+    // Last new line to end it off
+    printf("\n");
     
     // If we got here then we have printed everything hence we can return 0 for sucessful
     return 0;
