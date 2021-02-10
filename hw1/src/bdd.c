@@ -181,16 +181,45 @@ int bdd_lookup(int level, int left, int right) {
     return indexOutput;
 }
 
+/**
+ * This is the helper function that does the fixings
+ * it is very similar to mergeSort in term that it will break it
+ * down to the very end and then build it back up
+ * 
+ */
+int helper_recusive_function(unsigned char * raster, int left, int right, int passedLevel)
+{
+    // If left is less than right then we will continue to break it down
+    if(left < right)
+    {
+        // Find the middle point
+        int middle = left + (right - left)/2;
+        
+        int returnLeft = helper_recusive_function(raster, left, middle, passedLevel - 1);
+        int returnRight = helper_recusive_function(raster, middle + 1, right, passedLevel - 1);
+        
+        // After we get the returned value from both we can
+        // make our actual node from those two return value
+        int constructedNodeIndex = bdd_lookup(passedLevel + 1, returnLeft, returnRight);
+        
+        return constructedNodeIndex;
+    }
+    // Means that we hit the base_node we have to return the actual value that is in that index
+    // left or right doesn't really matter because they are equal anyway
+    return *(raster + left);
+}
+
 BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
     // Try this function next oh lord it looks really hard
-    BDD_NODE node = {'0', 1,2};
+    int level = log_of_2(w);
     
+    int returnedValue = helper_recusive_function(raster, 0, w * h - 1, level);
     
+    printf("The returned value is %d\n", returnedValue);
     
-        
+    BDD_NODE * output = bdd_nodes + returnedValue;
     
-    
-    return NULL;
+    return bdd_nodes + returnedValue;    
 }
 
 void bdd_to_raster(BDD_NODE *node, int w, int h, unsigned char *raster) {

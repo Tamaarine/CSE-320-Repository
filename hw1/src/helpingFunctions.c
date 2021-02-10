@@ -198,3 +198,19 @@ void initialize_bdd_hash_map()
         *(bdd_hash_map + i) = NULL;
     }
 }
+
+/**
+ * Returns the log of 2 of a number
+ */
+int log_of_2(int num)
+{
+    int counter = 0;
+    
+    while(num > 1)
+    {
+        num = num / 2;
+        counter ++;
+    }
+    
+    return counter;
+}

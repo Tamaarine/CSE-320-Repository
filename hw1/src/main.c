@@ -38,25 +38,36 @@ int main(int argc, char **argv)
     
     initialize_bdd_hash_map();
     
-    // Need to test bdd_lookup
-    int result1 = bdd_lookup(1, 4, 8);
-    printf("%d\n", result1);
+    // // Need to test bdd_lookup
+    // int result1 = bdd_lookup(1, 4, 8);
+    // printf("%d\n", result1);
     
-    int result2 = bdd_lookup(5, 100, 24);
-    printf("%d\n", result2);
+    // int result2 = bdd_lookup(5, 100, 24);
+    // printf("%d\n", result2);
     
-    int result3 = bdd_lookup(1, 4, 8);
-    printf("Result %d\n", result3);
+    // int result3 = bdd_lookup(1, 4, 8);
+    // printf("Result %d\n", result3);
     
-    BDD_NODE * nodePtr2 = *(bdd_hash_map + hashFunction(4,8));
-    printf("nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
+    // BDD_NODE * nodePtr2 = *(bdd_hash_map + hashFunction(4,8));
+    // printf("nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
 
-    BDD_NODE * nodePtr3 = *(bdd_hash_map + hashFunction(100,24));
-    printf("nodePtr3 is %d %d %d\n", nodePtr3->level, nodePtr3->left, nodePtr3->right);
+    // BDD_NODE * nodePtr3 = *(bdd_hash_map + hashFunction(100,24));
+    // printf("nodePtr3 is %d %d %d\n", nodePtr3->level, nodePtr3->left, nodePtr3->right);
     
-    BDD_NODE * nodePtr4 = *(bdd_hash_map + hashFunction(4,8));
-    printf("nodePtr3 is %d %d %d\n", nodePtr4->level, nodePtr4->left, nodePtr4->right);
+    // BDD_NODE * nodePtr4 = *(bdd_hash_map + hashFunction(4,8));
+    // printf("nodePtr3 is %d %d %d\n", nodePtr4->level, nodePtr4->left, nodePtr4->right);
     
+    unsigned char input1[] = {4, 8 ,4, 8}; // Should return 256 because only one node is made
+    bdd_from_raster(2, 2, input1);
+    
+    unsigned char input2[] = {4,2,12,255}; // Should return 259 3 node is created
+    bdd_from_raster(2, 2, input2);
+    
+    unsigned char input3[] = {4,2, 36, 49}; // Should return 261 2 node is created 4,2 is created before
+    bdd_from_raster(2,2,input3);
+    
+    unsigned char input4[] = {4,2, 4,8}; // Should return 262 only 1 node is created
+    bdd_from_raster(2,2, input4);
     
     // Initilize global_options to just 0
     global_options = 0;

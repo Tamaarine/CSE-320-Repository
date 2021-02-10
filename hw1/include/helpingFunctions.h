@@ -35,6 +35,11 @@ int integerTo2Complement(int num);
  */
 int hashFunction(int left, int right);
 
+/**
+ * Returns the log of 2 of a number
+ */
+int log_of_2(int num);
+
 void printRasterArray(unsigned char * raster, size_t size);
 
 void initialize_bdd_hash_map();
