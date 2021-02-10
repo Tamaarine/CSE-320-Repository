@@ -225,7 +225,7 @@ BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor);
  * BDD node to be looked up.
  * @param left  The index, in the bdd_nodes array, of the left (i.e. "0") child
  * of the BDD node to be looked up.
- * @param left  The index, in the bdd_nodes array, of the right (i.e. "1") child
+ * @param right  The index, in the bdd_nodes array, of the right (i.e. "1") child
  * of the BDD node to be looked up.
  * @return  An index in the bdd_nodes array, either of an existing node or
  * of a newly inserted node.

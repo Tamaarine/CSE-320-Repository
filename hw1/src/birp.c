@@ -10,6 +10,11 @@
 
 int pgm_to_birp(FILE *in, FILE *out) {
     // TO BE IMPLEMENTED
+    
+    
+    
+    
+    
     return -1;
 }
 

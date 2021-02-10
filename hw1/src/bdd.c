@@ -27,6 +27,8 @@
 int bdd_lookup(int level, int left, int right) {
     // Try this function first because it looks like the easiest one out of the three
     
+    printf("Got here with level %d left %d right %d\n", level, left, right);
+    
     // This is what we are returning to the caller
     int indexOutput = 0;
     
@@ -72,10 +74,10 @@ int bdd_lookup(int level, int left, int right) {
         free_node_counter ++;
         
         // Then we also have to insert it into the hash table with the address of the BDD NODE we just created
-        *(bdd_hash_map + hashedIndex) = &(*(bdd_nodes + indexOutput));
+        *(bdd_hash_map + hashedIndex) = &*(bdd_nodes + indexOutput);
         
         BDD_NODE * nodePtr2 = *(bdd_hash_map + hashedIndex);
-        printf("Function: nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
+        // printf("Function: nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
         
         // Then we can return indexOutput
         return indexOutput;
@@ -99,7 +101,7 @@ int bdd_lookup(int level, int left, int right) {
             // Divide by the size of the BDD_NODE
             // printf("nodePtr using & is %d\n", &nodePtr);
             
-            BDD_NODE * ptr1 = &*bdd_nodes; // Pointer to the base_address
+            BDD_NODE * ptr1 = bdd_nodes; // Pointer to the base_address
                     
             // Have to figure out how to calculate the index
             int address_diff = nodePtr - ptr1;
@@ -127,19 +129,7 @@ int bdd_lookup(int level, int left, int right) {
                 BDD_NODE * helpingPtr = *(bdd_hash_map + modOffset);
                 
                 // If this is true then we have got a match
-                if(helpingPtr->level == level && helpingPtr->left == left && helpingPtr->right == right)
-                {
-                    BDD_NODE * ptr1 = &*bdd_nodes; // Pointer to the base_address
-                    
-                    // Have to figure out how to calculate the index
-                    int address_diff = helpingPtr - ptr1;
-            
-                    // Don't need to divide
-                    
-                    // Then that's it that is the index where the entry is located in the array we can just return
-                    return address_diff;
-                }
-                else if(helpingPtr == NULL)
+                if(helpingPtr == NULL)
                 {
                     // If that entry is an empty entry then we have to insert it into that position
                     // with the free_node_counter index
@@ -162,7 +152,18 @@ int bdd_lookup(int level, int left, int right) {
                     // And we can finally return
                     return indexOutput;
                 }
-                
+                else if(helpingPtr->level == level && helpingPtr->left == left && helpingPtr->right == right)
+                {
+                    BDD_NODE * ptr1 = &*bdd_nodes; // Pointer to the base_address
+                    
+                    // Have to figure out how to calculate the index
+                    int address_diff = helpingPtr - ptr1;
+            
+                    // Don't need to divide
+                    
+                    // Then that's it that is the index where the entry is located in the array we can just return
+                    return address_diff;
+                }
                 // However, if that entry doesn't match then we have to go to the next iteration and check
                 
             }
@@ -200,7 +201,7 @@ int helper_recusive_function(unsigned char * raster, int left, int right, int pa
         
         // After we get the returned value from both we can
         // make our actual node from those two return value
-        int constructedNodeIndex = bdd_lookup(passedLevel + 1, returnLeft, returnRight);
+        int constructedNodeIndex = bdd_lookup(passedLevel, returnLeft, returnRight);
         
         return constructedNodeIndex;
     }
@@ -213,7 +214,7 @@ BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
     // Try this function next oh lord it looks really hard
     int level = log_of_2(w);
     
-    int returnedValue = helper_recusive_function(raster, 0, w * h - 1, level);
+    int returnedValue = helper_recusive_function(raster, 0, w * h - 1, 2 * level);
     
     printf("The returned value is %d\n", returnedValue);
     
