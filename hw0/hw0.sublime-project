@@ -11,6 +11,7 @@
             "follow_symlinks": false,
             "file_include_patterns":["*.c"],
         },
+bin/birp < rsrc/stone.pgm > test_output/outputk.birp
         {
             "path": "include",
             "name": "C Headers",

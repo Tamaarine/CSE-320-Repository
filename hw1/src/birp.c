@@ -9,13 +9,37 @@
 #include "helpingFunctions.h"
 
 int pgm_to_birp(FILE *in, FILE *out) {
-    // TO BE IMPLEMENTED
+    // Let's do this one next oh god.
+    // We have to read the pgm file from stdin using the function that is made for us already
+    int width = 0;
+    int height = 0;
+    int size = 0;
     
+    int result = img_read_pgm(in, &width, &height, raster_data, RASTER_SIZE_MAX);
     
+    // If the reading of pgm went wrong we return -1 
+    if(result == -1)
+    {
+        return -1;
+    }
+
+    // If we are here then that means reading of pgm file was sucess now we can
+    // begin turning the raster data into birp
+    // The first step is definitely calling bdd_from_raster to get the BDD diagram created
+    BDD_NODE * rootNode = bdd_from_raster(width, height, raster_data);
     
+    // We havbe to call img_write_birp which in term will call bdd_serialize    
+    int result2 = img_write_birp(rootNode, width, height, out);
     
-    
-    return -1;
+    // If result2 is -1 that means something went wrong when writing hence we return -1
+    if(result2 == -1)
+    {
+        return -1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 int birp_to_pgm(FILE *in, FILE *out) {

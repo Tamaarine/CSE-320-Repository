@@ -40,7 +40,19 @@ int hashFunction(int left, int right);
  */
 int log_of_2(int num);
 
+/**
+ * Returns the power of 2 to the n
+ */
+int pow2(int num);
+
+/**
+ * This function will print the corresponding 4 bytes using the given serial
+ * in little-endian format
+ */
+void printSerialNumberChild(int serial);
+
 void printRasterArray(unsigned char * raster, size_t size);
 
 void initialize_bdd_hash_map();
+void initialize_bdd_index_map();
 

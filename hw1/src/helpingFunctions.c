@@ -1,7 +1,7 @@
 #include "helpingFunctions.h"
 #include <stdio.h>
 
-int free_node_counter = 256;
+int free_node_counter = BDD_NUM_LEAVES;
 
 /**
  * This function will take two Strings and compare them and see if they are equal or not
@@ -199,6 +199,14 @@ void initialize_bdd_hash_map()
     }
 }
 
+void initialize_bdd_index_map()
+{
+    for(int i=0;i<BDD_NODES_MAX;i++)
+    {
+        *(bdd_index_map + i) = 0;
+    }
+}
+
 /**
  * Returns the log of 2 of a number
  */
@@ -213,4 +221,57 @@ int log_of_2(int num)
     }
     
     return counter;
+}
+
+/**
+ * Returns the power of 2 to the n
+ */
+int pow2(int num)
+{
+    int sum = 1;
+    
+    for(int i=0;i<num;i++)
+    {
+        sum *= 2;
+    }
+    
+    return sum;
+}
+
+/**
+ * This function will print the corresponding 4 bytes using the given serial
+ * in little-endian format
+ */
+void printSerialNumberChild(int serial)
+{
+    char firstByte = 0;
+    char secondByte = 0;
+    char thirdByte = 0;
+    char fourthByte = 0;
+    
+    for(int i=0;i<serial;i++)
+    {
+        firstByte ++;
+        
+        if(firstByte > 255)
+        {
+            secondByte ++;
+            firstByte = 0;
+        }
+        
+        if(secondByte > 255)
+        {
+            thirdByte ++;
+            secondByte = 0;
+        }
+        
+        if(thirdByte > 255)
+        {
+            fourthByte ++;
+            thirdByte = 0;
+        }
+    }
+    
+    // After finish counting we would just print them from firstByte to lastByte
+    printf("%c%c%c%c", firstByte, secondByte, thirdByte, fourthByte);
 }
