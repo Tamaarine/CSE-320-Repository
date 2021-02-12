@@ -49,7 +49,8 @@ int bdd_lookup(int level, int left, int right) {
     // to do wrap arounds
     
     // Okay first let's call our hasing function to get our hashed index
-    int hashedIndex = hashFunction(left, right);
+    // int hashedIndex = hashFunction(left, right);
+    int hashedIndex = left + right;
     
     // Then we check in hashtable at hashedIndex to see if there is any entry
     if(*(bdd_hash_map + hashedIndex) == NULL)

@@ -43,13 +43,14 @@ int main(int argc, char **argv)
     // Testing pgm_to_birp
     int result = pgm_to_birp(stdin, stdout);
     
-    // unsigned char input1[] = {1,2,3,4,5,6,7,8,9};
-    // BDD_NODE * test = bdd_from_raster(3,3,input1);
+    // unsigned char input1[] = {169, 12, 13, 178, 255, 111};
+    // BDD_NODE * test = bdd_from_raster(3,2,input1);
     // BDD_NODE ptr1 = bdd_nodes[256];
     // BDD_NODE ptr2 = bdd_nodes[257];
     
     // bdd_serialize(test, stdout);
-    
+    // printSerialNumberChild(256);
+   
     
     
     if(validargs(argc, argv))

@@ -244,10 +244,10 @@ int pow2(int num)
  */
 void printSerialNumberChild(int serial)
 {
-    char firstByte = 0;
-    char secondByte = 0;
-    char thirdByte = 0;
-    char fourthByte = 0;
+    int firstByte = 0;
+    int secondByte = 0;
+    int thirdByte = 0;
+    int fourthByte = 0;
     
     for(int i=0;i<serial;i++)
     {
