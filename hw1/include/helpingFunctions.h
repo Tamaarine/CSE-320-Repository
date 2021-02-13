@@ -33,7 +33,7 @@ int integerTo2Complement(int num);
  * in the hash table. That's it nothin else we will handle the linear probing
  * in the returned function after
  */
-int hashFunction(int left, int right);
+int hashFunction(int left, int right, int level);
 
 /**
  * Returns the log of 2 of a number
@@ -49,7 +49,14 @@ int pow2(int num);
  * This function will print the corresponding 4 bytes using the given serial
  * in little-endian format
  */
-void printSerialNumberChild(int serial);
+void printSerialNumberChild(int serial, FILE *out);
+
+/**
+ * This function will take in 4 bytes in total representing the little endian order
+ * serial number. It will take those 4 bytes and transform them into one integer that represents the serial number
+ * by doing polynomial expansion for base 256
+ */
+int fourByteIntoInteger(int firstByte, int secondByte, int thirdByte, int fourthByte);
 
 void printRasterArray(unsigned char * raster, size_t size);
 

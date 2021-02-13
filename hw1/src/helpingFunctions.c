@@ -168,7 +168,7 @@ int integerTo2Complement(int num)
  * in the hash table. That's it nothin else we will handle the linear probing
  * in the returned function after
  */
-int hashFunction(int left, int right)
+int hashFunction(int left, int right, int level)
 {
     // The hash function is simple we take left and we take right
     // add 48 to both of them and multiply by 997 add them together as a sum
@@ -176,7 +176,7 @@ int hashFunction(int left, int right)
     int rightValue = (right + 48) * 997;
     
     // Then we add them together as a sum
-    int sum = leftValue + rightValue;
+    int sum = leftValue + rightValue + level;
     
     // Finally the output of the function is just sum mod by the hashTable size
     return sum % BDD_HASH_SIZE;
@@ -242,7 +242,7 @@ int pow2(int num)
  * This function will print the corresponding 4 bytes using the given serial
  * in little-endian format
  */
-void printSerialNumberChild(int serial)
+void printSerialNumberChild(int serial, FILE * out)
 {
     int firstByte = 0;
     int secondByte = 0;
@@ -273,5 +273,33 @@ void printSerialNumberChild(int serial)
     }
     
     // After finish counting we would just print them from firstByte to lastByte
-    printf("%c%c%c%c", firstByte, secondByte, thirdByte, fourthByte);
+    fputc(firstByte, out);
+    fputc(secondByte, out);
+    fputc(thirdByte, out);
+    fputc(fourthByte, out);
+}
+
+/**
+ * This function will raise the base to the power times
+ */
+int myPow(int base, int power)
+{
+    int output = 1;
+    
+    for(int i=0;i<power;i++)
+    {
+        output = output * base;
+    }
+    
+    return output;
+}
+
+/**
+ * This function will take in 4 bytes in total representing the little endian order
+ * serial number. It will take those 4 bytes and transform them into one integer that represents the serial number
+ * by doing polynomial expansion for base 256
+ */
+int fourByteIntoInteger(int firstByte, int secondByte, int thirdByte, int fourthByte)
+{
+    return (firstByte * myPow(256, 0)) + (secondByte * myPow(256, 1)) + (thirdByte * myPow(256, 2)) + (fourthByte * myPow(256, 3));
 }

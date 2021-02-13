@@ -18,7 +18,7 @@
 
 // My own functions
 #include "helpingFunctions.h"
-
+#include "image.h"
 int main(int argc, char **argv)
 {    
     // Initialize the hash map
@@ -41,17 +41,19 @@ int main(int argc, char **argv)
     // bdd_from_raster(8,8, input6);
     
     // Testing pgm_to_birp
-    int result = pgm_to_birp(stdin, stdout);
+    // int result = pgm_to_birp(stdin, stdout);
     
-    // unsigned char input1[] = {169, 12, 13, 178, 255, 111};
-    // BDD_NODE * test = bdd_from_raster(3,2,input1);
-    // BDD_NODE ptr1 = bdd_nodes[256];
-    // BDD_NODE ptr2 = bdd_nodes[257];
+    // int result = pgm_to_ascii(stdin, stdout);
     
-    // bdd_serialize(test, stdout);
-    // printSerialNumberChild(256);
-   
+    // BDD_NODE * ptr = bdd_deserialize(stdin);
     
+    int width = 0;
+    int height = 0;
+    BDD_NODE * ptr = img_read_birp(stdin, &width, &height);
+    
+    initialize_bdd_index_map();
+    
+    int result = img_write_birp(ptr, width, height, stdout);
     
     if(validargs(argc, argv))
     {

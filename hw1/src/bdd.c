@@ -50,7 +50,7 @@ int bdd_lookup(int level, int left, int right) {
     
     // Okay first let's call our hasing function to get our hashed index
     // int hashedIndex = hashFunction(left, right);
-    int hashedIndex = left + right;
+    int hashedIndex = hashFunction(level, left, right);
     
     // Then we check in hashtable at hashedIndex to see if there is any entry
     if(*(bdd_hash_map + hashedIndex) == NULL)
@@ -465,8 +465,8 @@ int helping_bdd_serialize_recursive_function(char level, int left, int right, FI
             }
             
             // Finally we print the child using special algorithm 
-            printSerialNumberChild(leftSerial);
-            printSerialNumberChild(rightSerial);
+            printSerialNumberChild(leftSerial, out);
+            printSerialNumberChild(rightSerial, out);
             
             return availableSerial;
         }
@@ -499,12 +499,137 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
 }
 
 BDD_NODE *bdd_deserialize(FILE *in) {
-    // TO BE IMPLEMENTED
-    return NULL;
+    // Let's go ahead go bdd_deserialize after bdd_serialize
+    int readingChar = fgetc(in); // Getting the first char from the stdin
+    
+    // We need to keep a serial counter that will help us do the indexing
+    int serialCounter = 1;
+    
+    // The while loop for reading each of the char inside the stdin
+    while(readingChar != EOF)
+    {
+        // If the char that we read is a '@' meaning
+        // that we are constructing a leaf-node
+        if(readingChar == '@')
+        {
+            // But remember that the leaf-nodes are implicitly created it
+            // but we will have to read the next byte to make sure that
+            // it follows the format of BIRP
+            int valueByte = fgetc(in);
+            
+            // If the next byte that we read is not between 0 and 255 inclusive
+            // then it is not a valid format of leaf-node
+            if(valueByte < 0 && valueByte > 255)
+            {
+                // A leaf-node symbol followed a invalid range of value or EOF
+                // hence we return NULL
+                return NULL;
+            }
+            
+            // However if we are here then the byte that we read is between 0 and 255 inclusive
+            // hence we can proceed to insert it into the index_map
+            *(bdd_index_map + serialCounter) = valueByte;
+            
+            // After inserting into the table we must increment our serialCounter
+            serialCounter ++;
+        }
+        else if(readingChar >= 'A' && readingChar <= '`')
+        {
+            // readingChar defines our level for the node we will have to subtract the ascii to get back the actual number
+            int level = readingChar - '@';
+            
+            // If we are here then that means we are reading a valid
+            // indicator for building a non-leaf node hence we have to
+            // read total of 8 more bytes
+            int firstByte = 0;
+            int secondByte = 0;
+            int thirdByte = 0;
+            int fourthByte = 0;
+        
+            // We get the 4 byte for our left child
+            firstByte = fgetc(stdin);
+            secondByte = fgetc(stdin);
+            thirdByte = fgetc(stdin);
+            fourthByte = fgetc(stdin);
+            
+            if(firstByte == EOF || secondByte == EOF || thirdByte == EOF || fourthByte == EOF)
+            {
+                // If any of the bytes that we read are invalid then we will return NULL;
+                return NULL;
+            }
+            
+            // If not then we can begin turning those four bytes back into serial number by calling
+            // the helping functions
+            int leftChildSerial = fourByteIntoInteger(firstByte, secondByte, thirdByte, fourthByte);
+            
+            // After getting the left child serial number we will have to get the index of the left child
+            int leftChildIndex = *(bdd_index_map + leftChildSerial);
+            
+            // Next we will do the same for the right child
+            // We get the 4 byte for our right child
+            firstByte = fgetc(stdin);
+            secondByte = fgetc(stdin);
+            thirdByte = fgetc(stdin);
+            fourthByte = fgetc(stdin);
+            
+            // Do the same check for the right child
+            if(firstByte == EOF || secondByte == EOF || thirdByte == EOF || fourthByte == EOF)
+            {
+                // If any of the bytes that we read are invalid then we will return NULL;
+                return NULL;
+            }
+            
+            // Then we convert it back to actual serial number
+            int rightChildSerial = fourByteIntoInteger(firstByte, secondByte, thirdByte, fourthByte);
+            
+            // And we will get the right child serial number by indexing
+            int rightChildIndex = *(bdd_index_map + rightChildSerial);
+            
+            // Finally we can construct our node using bdd_lookup
+            int constructedIndex = bdd_lookup(level, leftChildIndex, rightChildIndex);
+            
+            // And then we have to insert the new index back into the index_map
+            *(bdd_index_map + serialCounter) = constructedIndex;
+            
+            // Then increment the serialCounter
+            serialCounter ++;
+        }
+        else
+        {
+            // If we are reading any other character it is considered to be invalid
+            return NULL;
+        }
+        
+        readingChar = fgetc(in);
+    }
+    
+    // Finally after reading through all of the "instructions", serialCounter will be on the next
+    // free index to insert the entry. If we just subtract 1 then it will return the
+    // last constructed node and that will be our return value
+    if(serialCounter == 1)
+    {
+        // If our serialCounter didn't move at all then it is an error
+        return NULL;
+    }
+    else
+    {
+        // But if it did construct nodes then we will return that node
+        int lastIndex = *(bdd_index_map + (serialCounter - 1));
+        
+        // Then we have to add that index to bdd_nodes as the offset to get the last constructed BDD_NODE pointer
+        BDD_NODE * output = &*(bdd_nodes + lastIndex);
+        
+        // Then we can just return and done
+        return output;
+    }
 }
 
 unsigned char bdd_apply(BDD_NODE *node, int r, int c) {
     // TO BE IMPLEMENTED
+    
+    
+    
+    
     return 0;
 }
 

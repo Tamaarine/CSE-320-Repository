@@ -88,34 +88,39 @@ int pgm_to_ascii(FILE *in, FILE *out) {
         // meaning that i is a multiple of 8 hence we have to print a newline
         if(i != 0 && i % width == 0)
         {
-            printf("\n");
+            // printf("\n");
+            fputc('\n', out);
         }
         
         // Then we must compare to see which mapping we are doing
         if(currentChar >= 0 && currentChar <= 63)
         {
             // Print a white space
-            printf(" ");
+            // printf(" ");
+            fputc(' ', out);
         }
         else if(currentChar >= 64 && currentChar <= 127)
         {
             // Print a period
-            printf(".");
+            // printf(".");
+            fputc('.', out);
         }
         else if(currentChar >= 128 && currentChar <= 191)
         {
             // Print an asterisk
-            printf("*");
+            // printf("*");
+            fputc('*', out);
         }
         else if(currentChar >= 192 && currentChar <= 255)
         {
             // Print @
-            printf("@");
+            // printf("@");
+            fputc('@', out);
         }
     }
     
-    // Last new line to end it off
-    printf("\n");
+    // 2 new line to end it off
+    fputc('\n', out);
     
     // If we got here then we have printed everything hence we can return 0 for sucessful
     return 0;
