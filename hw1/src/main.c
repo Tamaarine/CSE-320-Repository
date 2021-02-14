@@ -47,13 +47,42 @@ int main(int argc, char **argv)
     
     // BDD_NODE * ptr = bdd_deserialize(stdin);
     
-    int width = 0;
-    int height = 0;
-    BDD_NODE * ptr = img_read_birp(stdin, &width, &height);
+    // int width = 0;
+    // int height = 0;
+    // BDD_NODE * ptr = img_read_birp(stdin, &width, &height);
     
-    initialize_bdd_index_map();
+    // // Make sure you call initialize_bdd_index_map() again after you do img_read_birp
+    // initialize_bdd_index_map();
     
-    int result = img_write_birp(ptr, width, height, stdout);
+    // int result = img_write_birp(ptr, width, height, stdout);
+    
+    // unsigned char input1[] = {4,4,5,5,4,4,5,5,6,6,7,7,6,6,7,7};
+    // BDD_NODE * root = bdd_from_raster(4,4, input1);
+    
+    // unsigned char input2[] = {4,4,5,5,4,4,5,5,6,6,5,5,6,6,5,5};
+    // BDD_NODE * root = bdd_from_raster(4,4, input2);
+    
+    unsigned char input3[] = {4,4,6,7,4,4,6,7,4,4,6,7,5,5,7,8};
+    BDD_NODE * root = bdd_from_raster(4,4, input3);
+    
+    printf("%d\n", bdd_apply(root, 0,0)); // 7
+    printf("%d\n", bdd_apply(root, 0,1)); // 7
+    printf("%d\n", bdd_apply(root, 0,2)); // 7
+    printf("%d\n", bdd_apply(root, 0,3)); // 7
+    printf("%d\n", bdd_apply(root, 1,0)); // 7
+    printf("%d\n", bdd_apply(root, 1,1)); // 7
+    printf("%d\n", bdd_apply(root, 1,2)); // 7
+    printf("%d\n", bdd_apply(root, 1,3)); // 6
+    printf("%d\n", bdd_apply(root, 2,0)); // 6
+    printf("%d\n", bdd_apply(root, 2,1)); // 6
+    printf("%d\n", bdd_apply(root, 2,2)); // 6
+    printf("%d\n", bdd_apply(root, 2,3)); // 6
+    printf("%d\n", bdd_apply(root, 3,0)); // 6
+    printf("%d\n", bdd_apply(root, 3,1)); // 6
+    printf("%d\n", bdd_apply(root, 3,2)); // 6
+    printf("%d\n", bdd_apply(root, 3,3)); // 6
+    
+    
     
     if(validargs(argc, argv))
     {

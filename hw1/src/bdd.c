@@ -326,6 +326,13 @@ BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
     // Call the recursive helping function. We call split row first
     int returnedValue = helper_recursive_function_split_row(raster, 0, 0, dimension, dimension, level, w, w, h);
     
+    // If the raster is all full of one pixel value then the returnedValue will be less than 256
+    // hence we will return null because no new made is created
+    if(returnedValue < BDD_NUM_LEAVES)
+    {
+        return NULL;
+    }
+    
     // // Find the root node using pointer arithemtic
     BDD_NODE * output = bdd_nodes + returnedValue;
     
@@ -483,6 +490,9 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
     // When we call bdd_serialize the bdd_nodes table are already filled with the BDD_NODES
     // we can begin working on the algorithm immediately
     
+    // Initialize the bdd_index_map first
+    initialize_bdd_index_map();
+    
     int result = helping_bdd_serialize_recursive_function(node->level, node->left, node->right, out, 1);
     
     // Meaning that no serial was used therefore something went through
@@ -499,6 +509,9 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
 }
 
 BDD_NODE *bdd_deserialize(FILE *in) {
+    // Initialize the index_map first before we use it
+    initialize_bdd_index_map();
+    
     // Let's go ahead go bdd_deserialize after bdd_serialize
     int readingChar = fgetc(in); // Getting the first char from the stdin
     
@@ -624,13 +637,311 @@ BDD_NODE *bdd_deserialize(FILE *in) {
     }
 }
 
+unsigned char helper_recursion_bdd_apply2(BDD_NODE * node, int r, int c, int level, int maskR, int maskC)
+{
+    // We first check if we hit level 1 then that means we have hit the base case
+    // and we can just decide which left or right child to take
+    if(level == 1)
+    {
+        // So if we are level 1 then we will have to maskC
+        // it is left or right not top or bottom
+        int maskedResult = c & maskC;
+        
+        // If the maskedResult is 0 then we will take the left child
+        if(maskedResult == 0)
+        {
+            return node->left;
+        }
+        else
+        {
+            // If anything else then we will return the right child
+            return node->right;
+        }
+    }
+    else
+    {
+        // However, if we are here then we are not at level 1
+        // and we have to becareful about handling the level skippings
+        // First we determine which side we are splitting top and bottom or left and right
+        if(level % 2 == 0)
+        {
+            // If level is even then we will split top and bottom
+            int leftChildIndex = node->left;
+            int rightChildIndex = node->right;
+            
+            // Now we have to figure out which child we are taking
+            int maskedResult = r & maskR;
+            
+            // Take the left child
+            if(maskedResult == 0)
+            {
+                // If the left child is a leaf-node then we don't have to search any deeper we
+                // can just return the left child index
+                if(leftChildIndex < BDD_NUM_LEAVES)
+                {
+                    return leftChildIndex;
+                }
+                else
+                {
+                    // However if the left child is a non-leaf node then we will have to keep on checking
+                    BDD_NODE * leftChildNode = &*(bdd_nodes + leftChildIndex);
+                    
+                    // Find the levelDiff first
+                    int levelDiff = node->level - leftChildNode->level;
+                    
+                    // First we have to figure out whether we are skipping levels or not
+                    if(levelDiff == 1)
+                    {
+                        // If we are here then that means we are not skipping any levels
+                        // proceed like normal doing a normal recursive call
+                        // Because we are at an even level we have used the maskR hence we have to shift our maskR and not maskC
+                        int result = helper_recursion_bdd_apply2(leftChildNode, r, c, leftChildNode->level, maskR >> 1, maskC);
+                        
+                        return result;
+                    }
+                    // However if we are indeed skipping levels then we have to handle that
+                    else
+                    {
+                        // If we indeed have skipping level then we have to increment our
+                        // maskR and maskC first before doing a recursive call
+                        // we will do it via for loop and remember levelDiff includes itself
+                        // to shift right
+                        
+                        // shiftC is a flag that we will be using to alternative
+                        // which mask to shift
+                        int shiftR = 1;
+                        
+                        int workingMaskR = maskR;
+                        int workingMaskC = maskC;
+                        
+                        // If the level difference is 2 then we will have to shift workingMaskR and maskC
+                        // 2 times 1 for each
+                        for(int i=0;i<levelDiff;i++)
+                        {
+                            // If we are shiftingR then we will shiftR and change the boolean
+                            if(shiftR)
+                            {
+                                workingMaskR = workingMaskR >> 1;
+                                shiftR = 0; // Flip our boolean
+                            }
+                            else
+                            {
+                                // If we are not shiftingR then we will shift maskC
+                                workingMaskC = workingMaskC >> 1;
+                                shiftR = 1; // Change our boolean 
+                            }
+                        }
+                        
+                        // Finally after handling our mask we can do the recursive calls
+                        int result = helper_recursion_bdd_apply2(leftChildNode, r, c, leftChildNode->level, workingMaskR, workingMaskC);
+                        
+                        // Return the result after
+                        return result;
+                    }
+                }
+            }
+            else
+            {
+                // Take the right child
+                // Again we check if the right child is just a leaf-node then we can just reutnr the right child index
+                if(rightChildIndex < BDD_NUM_LEAVES)
+                {
+                    return rightChildIndex;
+                }
+                else
+                {
+                    // However if it is not a leaf-node then we will have to do more work
+                    BDD_NODE * rightChildNode = &*(bdd_nodes + rightChildIndex);
+                    
+                    // Then we will find the levelDiff
+                    int levelDiff = node->level - rightChildNode->level;
+                    
+                    // Then we check whether we are skipping levels or not
+                    if(levelDiff == 1)
+                    {
+                        // If we are here then we are not doing any level skips
+                        // Again we only shift the maskR because we are currently at an even level
+                        int result = helper_recursion_bdd_apply2(rightChildNode, r, c, rightChildNode->level, maskR >> 1, maskC);
+                        
+                        // Then just return the result
+                        return result;
+                    }
+                    else
+                    {
+                        // Make our shift flags for R first because we have to account for the R we are currently at
+                        int shiftR = 1;
+                        
+                        int workingMaskR = maskR;
+                        int workingMaskC = maskC;
+                        
+                        for(int i=0;i<levelDiff;i++)
+                        {
+                            // If we shiftR then we will shiftR and flip the boolean
+                            if(shiftR)
+                            {
+                                workingMaskR = workingMaskR >> 1;
+                                shiftR = 0;
+                            }
+                            else
+                            {
+                                // Shift maskC and flip the boolean
+                                workingMaskC = workingMaskC >> 1;
+                                shiftR = 1;
+                            }
+                        }
+                        
+                        // Finally we can call the recursive methods
+                        int result = helper_recursion_bdd_apply2(rightChildNode, r, c, rightChildNode->level, workingMaskR, workingMaskC);
+                        
+                        // And return the result
+                        return result;
+                    }
+                }
+            }
+        }
+        else
+        {
+            // If level is odd then we will have to split left and right 
+            int leftChildIndex = node->left;
+            int rightChildIndex = node->right;
+            
+            // First figure out which child we are taking
+            int maskedResult = c & maskC;
+            
+            // If the result is 0 then we will take the left child           
+            if(maskedResult == 0)
+            {
+                // again we check if the leftChildIndex is a leaf-node
+                if(leftChildIndex < BDD_NUM_LEAVES)
+                {
+                    return leftChildIndex;
+                }
+                else
+                {
+                    // Okay if we are here then that means the left child is not yet a leaf-node
+                    // and we have to do some checkins before we make the recursive calls
+                    BDD_NODE * leftChildNode = &*(bdd_nodes + leftChildIndex);
+                    
+                    // Find t he levelDiff first
+                    int levelDiff = node->level - leftChildNode->level;
+                    
+                    // If levelDiff is equal to 1 then proceed like normal
+                    if(levelDiff == 1)
+                    {
+                        // Make a normal recursive call
+                        // with a shifted right maskC
+                        int result = helper_recursion_bdd_apply2(leftChildNode, r, c, leftChildNode->level, maskR, maskC >> 1);
+                        
+                        return result;
+                    }
+                    else
+                    {
+                        // However if we are here then that means we are skipping levels
+                        // make a flag for alternating mask shifts
+                        int shiftC = 1;
+                        
+                        int workingMaskR = maskR;
+                        int workingMaskC = maskC;
+                        
+                        // This for loop will help us do the mask shifts
+                        for(int i=0;i<levelDiff;i++)
+                        {
+                            // If we are here then we will do shiftC and change the boolean
+                            if(shiftC)
+                            {
+                                workingMaskC = workingMaskC >> 1;
+                                shiftC = 0;
+                            }
+                            else
+                            {
+                                // However if shiftC is false then we will shfit maskR
+                                workingMaskR = workingMaskR >> 1;
+                                shiftC = 1;
+                            }
+                        }
+                        
+                        // Finally we can make our recursive calls
+                        int result = helper_recursion_bdd_apply2(leftChildNode, r, c, leftChildNode->level, workingMaskR, workingMaskC);
+                        
+                        return result;
+                    }
+                }
+            }
+            else
+            {
+                // If we are here then we are taking the right child 
+                if(rightChildIndex < BDD_NUM_LEAVES)
+                {
+                    return rightChildIndex;
+                }
+                else
+                {
+                    // If we are here then our rightChild is not a leaf-node
+                    BDD_NODE * rightChildNode = &*(bdd_nodes + rightChildIndex);
+                    
+                    // Find the levelDiff first
+                    int levelDiff = node->level - rightChildNode->level;
+                    
+                    // Proceed like normal if the level diff is only 1
+                    if(levelDiff == 1)
+                    {
+                        // Do the recursive call but with maskC shift to the right 1 bit
+                        int result = helper_recursion_bdd_apply2(rightChildNode, r, c, rightChildNode->level, maskR, maskC >> 1);
+                        
+                        return result;
+                    }
+                    else
+                    {
+                        // If we are here then we have to handle the skipping levels
+                        int shiftC = 1;
+                        
+                        int workingMaskR = maskR;
+                        int workingMaskC = maskC;
+                        
+                        // This is the for loop that will help us shift the masks
+                        for(int i=0;i<levelDiff;i++)
+                        {
+                            // If we are here then we will do shiftC and change the boolean
+                            if(shiftC)
+                            {
+                                workingMaskC = workingMaskC >> 1;
+                                shiftC = 0;
+                            }
+                            else
+                            {
+                                // However if shiftC is false then we will shfit maskR
+                                workingMaskR = workingMaskR >> 1;
+                                shiftC = 1;
+                            }
+                        }
+                        
+                        // Okay! Do our recursive calls
+                        int result = helper_recursion_bdd_apply2(rightChildNode, r, c, rightChildNode->level, workingMaskR, workingMaskC);
+                        
+                        return result;
+                    }
+                }
+            }
+        }
+    }
+}
+
 unsigned char bdd_apply(BDD_NODE *node, int r, int c) {
-    // TO BE IMPLEMENTED
+    // Okay bdd_apply is next, wish me luck :')
+    // We have to figure out the mask that we are passing in initially for our function
+    int maskR = 1;
+    int maskC = 1;
     
+    // node.level / 2 - 1 is how many shifts we are doing
+    int shifts = (node->level / 2) - 1;
     
+    // Do the mask shifts before passing it in
+    maskR = maskR << shifts;
+    maskC = maskC << shifts;
     
-    
-    return 0;
+    int result = helper_recursion_bdd_apply2(node, r, c, node->level, maskR, maskC);
+        
+    return result;
 }
 
 BDD_NODE *bdd_map(BDD_NODE *node, unsigned char (*func)(unsigned char)) {
