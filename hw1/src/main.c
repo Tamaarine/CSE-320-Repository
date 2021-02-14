@@ -56,24 +56,27 @@ int main(int argc, char **argv)
     
     // int result = img_write_birp(ptr, width, height, stdout);
     
-    unsigned char input1[] = {4,4,5,5,4,4,5,5,6,6,7,7,6,6,7,7};
-    BDD_NODE * root = bdd_from_raster(4,4, input1);
+    // unsigned char input1[] = {4,4,5,5,4,4,5,5,6,6,7,7,6,6,7,7};
+    // BDD_NODE * root = bdd_from_raster(4,4, input1);
     
-    unsigned char input2[] = {4,4,5,5,4,4,5,5,6,6,5,5,6,6,5,5};
-    BDD_NODE * root = bdd_from_raster(4,4, input2);
+    // unsigned char input2[] = {4,4,5,5,4,4,5,5,6,6,5,5,6,6,5,5};
+    // BDD_NODE * root = bdd_from_raster(4,4, input2);
     
     // unsigned char input3[] = {4,4,6,0,6,6,6,0,7,7,7,0,0,0,0,0};
     // BDD_NODE * root = bdd_from_raster(4,4, input3);
     
-    unsigned char output[100];
+    // unsigned char output[100];
     
-    bdd_to_raster(root, 4, 4, output);    
+    // bdd_to_raster(root, 4, 4, output);    
     
-    for(int i=0;i<16;i++)
-    {
-        printf("%d\n", output[i]);
-    }
+    // for(int i=0;i<16;i++)
+    // {
+    //     printf("%d\n", output[i]);
+    // }
     
+    
+    // Test birp_to_pgm
+    int result = birp_to_pgm(stdin, stdout);
     
     
     if(validargs(argc, argv))
@@ -85,7 +88,10 @@ int main(int argc, char **argv)
         USAGE(*argv, EXIT_SUCCESS);
     }
     
-    // TO BE IMPLEMENTED
+    // Then we will do our function calls here
+    
+    
+        
     return EXIT_SUCCESS;
 }
 

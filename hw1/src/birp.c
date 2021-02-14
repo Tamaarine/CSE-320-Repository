@@ -43,13 +43,30 @@ int pgm_to_birp(FILE *in, FILE *out) {
 }
 
 int birp_to_pgm(FILE *in, FILE *out) {
-    // Okay let's do birp_to_pgm next
-        
+    // Okay let's do birp_to_pgm next hope this is not bad
+    // We will have to call img_read_birp first
+    // Variable for storing the birp image format size information
+    int width = 0; 
+    int height = 0;
     
+    // We call img_read_birp to read the birp format
+    BDD_NODE * root = img_read_birp(in, &width, &height);
     
+    // Then we call bdd_to_raster
+    bdd_to_raster(root, width, height, raster_data);
     
+    // Then we call img_write_pgm
+    int result = img_write_pgm(raster_data, width, height, out);
     
-    return -1;
+    // Error occured
+    if(result == -1)
+    {
+        return -1;   
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 int birp_to_birp(FILE *in, FILE *out) {
