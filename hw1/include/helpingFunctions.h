@@ -62,4 +62,5 @@ void printRasterArray(unsigned char * raster, size_t size);
 
 void initialize_bdd_hash_map();
 void initialize_bdd_index_map();
+void initialize_raster();
 

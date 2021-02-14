@@ -43,7 +43,12 @@ int pgm_to_birp(FILE *in, FILE *out) {
 }
 
 int birp_to_pgm(FILE *in, FILE *out) {
-    // TO BE IMPLEMENTED
+    // Okay let's do birp_to_pgm next
+        
+    
+    
+    
+    
     return -1;
 }
 

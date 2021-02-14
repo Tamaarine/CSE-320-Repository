@@ -341,7 +341,29 @@ BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
 }
 
 void bdd_to_raster(BDD_NODE *node, int w, int h, unsigned char *raster) {
-    // TO BE IMPLEMENTED
+    // Okay finished bdd_apply now we are going to start bdd_to_raster
+    // hope this one isn't that bad
+    
+    // We are going to do a nested for loop, hence a separate counter for 
+    // the raster array
+    int rasterCounter = 0;
+    
+    // Then we can begin our nested for loop
+    for(int r=0;r<h;r++)
+    {
+        for(int c=0;c<w;c++)
+        {
+            // Then let's call our bdd_apply to get the value that is stored at this index
+            // in the square array 
+            int returnedValue = bdd_apply(node, r, c);
+            
+            // Then we have to put it into our raster array
+            *(raster + rasterCounter) = returnedValue;
+            
+            // And increment our counter
+            rasterCounter ++;
+        }
+    }
 }
 
 /**

@@ -207,6 +207,14 @@ void initialize_bdd_index_map()
     }
 }
 
+void initialize_raster()
+{
+    for(int i=0;i<RASTER_SIZE_MAX;i++)
+    {
+        *(raster_data + i) = 0;
+    }
+}
+
 /**
  * Returns the log of 2 of a number
  */
