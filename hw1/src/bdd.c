@@ -330,7 +330,19 @@ BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
     // hence we will return null because no new made is created
     if(returnedValue < BDD_NUM_LEAVES)
     {
-        return NULL;
+        // If we are returning a leaf-node we will make a special node that
+        // has all value level, left and right equal to the leaf-node pixel value
+        BDD_NODE onlyNode = {returnedValue, -1, -1};
+        
+        // If everything is the same then we will return a special node that is located at
+        // the last index of bdd_nodes
+        *(bdd_nodes + (BDD_NODES_MAX - 1)) = onlyNode;
+        
+        // Then again we cannot returned the address of a local struct
+        // hence we have to find that node in the bdd_nodes and return that
+        BDD_NODE * finalOutput = &*(bdd_nodes + (BDD_NODES_MAX - 1));
+        
+        return finalOutput;
     }
     
     // // Find the root node using pointer arithemtic
@@ -348,20 +360,48 @@ void bdd_to_raster(BDD_NODE *node, int w, int h, unsigned char *raster) {
     // the raster array
     int rasterCounter = 0;
     
-    // Then we can begin our nested for loop
-    for(int r=0;r<h;r++)
+    // We will need a separate loop to handle if the root node given is a special node
+    if(node->left == -1 && node->right == -1)
     {
-        for(int c=0;c<w;c++)
+        // If we are here then that means the given root node is the special node with only 1 level
+        for(int r=0;r<h;r++)
         {
-            // Then let's call our bdd_apply to get the value that is stored at this index
-            // in the square array 
-            int returnedValue = bdd_apply(node, r, c);
-            
-            // Then we have to put it into our raster array
-            *(raster + rasterCounter) = returnedValue;
-            
-            // And increment our counter
-            rasterCounter ++;
+            for(int c=0;c<w;c++)
+            {
+                if(r < h && c < w)
+                {
+                    *(raster + rasterCounter) = node->level;
+                }
+                else
+                {
+                    // If r and c are outside then we will take 0 
+                    *(raster + rasterCounter) = 0;
+                }
+                
+                // Increment the rasterCounter
+                rasterCounter ++;
+            }
+        }
+    }
+    else
+    {
+        // If we are here then the node is not the level 0 node
+        // we can proceed like normal
+        // Then we can begin our nested for loop
+        for(int r=0;r<h;r++)
+        {
+            for(int c=0;c<w;c++)
+            {
+                // Then let's call our bdd_apply to get the value that is stored at this index
+                // in the square array 
+                int returnedValue = bdd_apply(node, r, c);
+                
+                // Then we have to put it into our raster array
+                *(raster + rasterCounter) = returnedValue;
+                
+                // And increment our counter
+                rasterCounter ++;
+            }
         }
     }
 }
@@ -512,6 +552,16 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
     // When we call bdd_serialize the bdd_nodes table are already filled with the BDD_NODES
     // we can begin working on the algorithm immediately
     
+    // We have to take care of the incase where there is only one leaf-node and nothing else
+    if(node->left == -1 && node->right == -1)
+    {
+        // The only thing we can put is the @ + the level since it is the special node
+        // I made it in bdd_from_raster such that if it was a node like that
+        // then level will be the pixel value and left and right are both -1
+        fputc('@', out);
+        fputc(node->level, out);
+    }
+    
     // Initialize the bdd_index_map first
     initialize_bdd_index_map();
     
@@ -650,6 +700,21 @@ BDD_NODE *bdd_deserialize(FILE *in) {
     {
         // But if it did construct nodes then we will return that node
         int lastIndex = *(bdd_index_map + (serialCounter - 1));
+
+        // This rperesents the special case where there is only one node being made
+        if(lastIndex < BDD_NUM_LEAVES)
+        {
+            // Then we have to construct our special node
+            BDD_NODE finalOutput = {lastIndex, -1, -1};
+            
+            // Then we insert it to the last index of our table
+            *(bdd_nodes + (BDD_NODES_MAX - 1)) = finalOutput;
+            
+            // Insert it to our node table
+            BDD_NODE * finalOutputPointer = &*(bdd_nodes + (BDD_NODES_MAX - 1));
+            
+            return finalOutputPointer;
+        }
         
         // Then we have to add that index to bdd_nodes as the offset to get the last constructed BDD_NODE pointer
         BDD_NODE * output = &*(bdd_nodes + lastIndex);
@@ -966,9 +1031,98 @@ unsigned char bdd_apply(BDD_NODE *node, int r, int c) {
     return result;
 }
 
+/**
+ * This is the helper function that will help us do the post order traversal and applying
+ * the map to each leaf-nodes
+ */
+int helper_recursion_bdd_map(BDD_NODE * node, unsigned char (*func)(unsigned char))
+{
+    // Let's just get the base case out of the way which is
+    // whenever the passed node is the leaf-node, don't worry
+    // we will pass it in a way such that the level is 0
+    // and left and right are equal to the pixel value
+    if(node->level == 0)
+    {
+        // If we are at the leaf-node then we will apply our mapping functions
+        // Because left and right of node will be the pixel value when we reach
+        // here we can just call it on left or right doens't matter to get our mappedValue
+        int mappedValue = func(node->left);
+        
+        // Then we can proceed to return our mappedValue
+        return mappedValue;
+    }
+    else
+    {
+        // However, if we are not at a leaf-node then we will have to do our recursive calls
+        // Let's get our left and right child node first
+        int leftChildIndex = node->left;
+        int rightChildIndex = node->right;
+        
+        int leftReturnedValue = 0;
+        int rightReturnedValue = 0;
+        
+        // First we check whether or not if the leftChildIndex is 
+        // a leaf-node
+        if(leftChildIndex < BDD_NUM_LEAVES)
+        {
+            // If it is a leaf-node then we will pass in special parameter for our recursive calls
+            BDD_NODE toPass = {0, leftChildIndex, leftChildIndex};
+            
+            // We do our recursive call here with our special BDD_NODE of level 0
+            leftReturnedValue = helper_recursion_bdd_map(&toPass, func);
+        }
+        else
+        {
+            // However, if we are here then that means that leftChild is not yet a leaf-node hence
+            // we will have to do our recursive calls here
+            // Before we can call it we have to get the BDD_NODE from the bdd_nodes 
+            BDD_NODE toPass = *(bdd_nodes + leftChildIndex);
+            
+            // Then we can do our recursive calls
+            leftReturnedValue = helper_recursion_bdd_map(&toPass, func);
+        }
+        
+        // Then we do it to the other side as well
+        if(rightChildIndex < BDD_NUM_LEAVES)
+        {
+            // Again this means that the right child is a leaf-node we will make our special
+            // BDD_NODE to pass
+            BDD_NODE toPass = {0, rightChildIndex, rightChildIndex};
+            
+            // Then we do our recursive call
+            rightReturnedValue = helper_recursion_bdd_map(&toPass, func);
+        }
+        else
+        {
+            // However, if we are here then rightChild is not a leaf-node hence we will do our
+            // recursive calls
+            BDD_NODE toPass = *(bdd_nodes + rightChildIndex);
+            
+            rightReturnedValue = helper_recursion_bdd_map(&toPass, func);
+        }
+        
+        // Finally after those two recrusive calls we will have
+        // the left and right returnedValue to construct our new node via bdd_lookup
+        int constructedIndex = bdd_lookup(node->level, leftReturnedValue, rightReturnedValue);
+        
+        // And we can return this index as our return value
+        return constructedIndex;
+    }
+}
+
 BDD_NODE *bdd_map(BDD_NODE *node, unsigned char (*func)(unsigned char)) {
-    // TO BE IMPLEMENTED
-    return NULL;
+    // Alright let's get started on this bad boy
+    // Let's call helper_recursion_bdd_map with our root value
+    int result = helper_recursion_bdd_map(node, func);
+    
+    // Perhaps add handling for the cases if we are given a picture of entirely one value
+    
+    // Then we will get the index of the node back in result
+    // we can just add it up 
+    BDD_NODE * output = bdd_nodes + result;
+    
+    // Then just return our output
+    return output;
 }
 
 BDD_NODE *bdd_rotate(BDD_NODE *node, int level) {

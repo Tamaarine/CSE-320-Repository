@@ -29,6 +29,7 @@ int pgm_to_birp(FILE *in, FILE *out) {
     BDD_NODE * rootNode = bdd_from_raster(width, height, raster_data);
     
     // We havbe to call img_write_birp which in term will call bdd_serialize    
+    // bdd_serialize will handle the case in which there is only 1 level 0 node
     int result2 = img_write_birp(rootNode, width, height, out);
     
     // If result2 is -1 that means something went wrong when writing hence we return -1
@@ -69,9 +70,94 @@ int birp_to_pgm(FILE *in, FILE *out) {
     }
 }
 
+/**
+ * This function will take a given pixel value and negate it by subtracting it againt 255
+ */
+unsigned char negateOperation(unsigned char pixel)
+{
+    return 255 - pixel;
+}
+
+/**
+ * This function will do the threshold operation which 
+ * will compare the pixel to the threshold (access by using global_options)
+ * If the pixel is >= threshold replace by 255. Else replace by 0
+ */
+unsigned char thresholdOperation(unsigned char pixel)
+{
+    // This gets us the parameterByte
+    int parameterByte = 0x00FF0000 & global_options;
+    parameterByte = parameterByte >> 16;
+    
+    // Return 255
+    if(pixel >= parameterByte)
+    {
+        return 255;
+    }
+    // Return 0
+    else
+    {
+        return 0;
+    }
+    
+}
+
+
 int birp_to_birp(FILE *in, FILE *out) {
-    // TO BE IMPLEMENTED
-    return -1;
+    // This is the place where we have to apply transformations
+    // First we have to read the birp file
+    int width = 0;
+    int height = 0;
+    
+    // Calling img_read_birp to read the birp format into BDD
+    BDD_NODE * root = img_read_birp(stdin, &width, &height);
+    
+    int result = 0;
+    
+    // Then we will pass root into different transformations
+
+    // we will get the type of trasnformation by doing & with the global_options and couple with right shifts
+    
+    // This gets us the transformationByte
+    int transformationByte = 0x00000F00 & global_options;
+    transformationByte = transformationByte >> 8;
+    
+    // This is the identity trasnformation
+    if(transformationByte == 0)
+    {
+        
+    }
+    // This is the negate transformation
+    else if(transformationByte == 1)
+    {
+        BDD_NODE * newRoot = bdd_map(root, &negateOperation);
+        
+        // Then write the birp image out
+        result = img_write_birp(newRoot, width, height, stdout);
+    }
+    // This is the threshold trasnformation
+    else if(transformationByte == 2)
+    {
+        BDD_NODE * newRoot = bdd_map(root, thresholdOperation);
+        
+        // Then we have to write the birp image again to stdout
+        result = img_write_birp(newRoot, width, height, stdout);
+    }
+    // This is the zoom trasnformation
+    else if(transformationByte == 3)
+    {
+        
+    }
+    // This is the rotate trasnformation
+    else if(transformationByte == 4)
+    {
+        
+    }
+
+
+    
+    return result;
+    
 }
 
 int pgm_to_ascii(FILE *in, FILE *out) {
@@ -149,8 +235,81 @@ int pgm_to_ascii(FILE *in, FILE *out) {
 }
 
 int birp_to_ascii(FILE *in, FILE *out) {
-    // TO BE IMPLEMENTED
-    return -1;
+    // We will do this function next, it shouldn't be that bad right?
+    
+    // First step we have to call img_read_birp to read the birp input
+    int width = 0;
+    int height = 0;
+    
+    BDD_NODE * root = img_read_birp(in, &width, &height);
+    
+    // If the returned root is the special node then we will return -1
+    if(root->left == -1 && root->right == -1)
+    {
+        // Because that means it is a BDD with only 1 node at level 0
+        // need to implement this
+        // TODO Need to do this
+        return -1;
+    }
+    
+    // Then we will call bdd_to_raster to convert it into a raster array
+    // But first we have to figure out the minimal level to display the pgm
+    // because we are diaplying it as a square 2^d
+    int minimalLevel = bdd_min_level(width, height);
+    
+    // Okay we got the minimal level of the bdd, now we have to divide by 2 
+    // to get the power of 2, in which we will make our ascii art in that is our width of the square
+    int powerOf2 = minimalLevel / 2;
+    
+    // We get the dimension of the square
+    int squareDimension = pow2(powerOf2);
+    
+    // Then we have to call bdd_to_raster to convert the BDD into raster data
+    bdd_to_raster(root, width, height, raster_data);
+    
+    // Now we can essentially begin reading the raster
+    // and then begin converting our raster data into ascii art
+    for(int i=0;i<width * height;i++)
+    {
+        // Let's get our current current char from the raster
+        unsigned char currentChar = *(raster_data + i);
+        
+        // Now we have are at a index that is not 0 and not a multiple of squareDimension
+        // we must pritn a new line
+        if(i != 0 && i % width == 0)
+        {
+            fputc('\n', out);
+        }
+        
+        // Then after setting the new lines we will begin converting our data into ascii
+        // the conversion is
+        // 0 - 63 = ' ' (space)
+        // 64 - 127 = '.'
+        // 128 - 191 = '*'
+        // 192 - 255 = '@'
+        if(currentChar >= 0 && currentChar <= 63)
+        {
+            fputc(' ', out);
+        }
+        else if(currentChar >= 64 && currentChar <= 127)
+        {
+            fputc('.', out);
+        }
+        else if(currentChar >= 128 && currentChar <= 191)
+        {
+            fputc('*', out);
+        }
+        else if(currentChar >= 192 && currentChar <= 255)
+        {
+            fputc('@', out);
+        }
+    }
+    
+    // Then we put a new line to end it off
+    fputc('\n', out);
+    
+    // And if we got here then everything is printed sucessfully    
+    return 0;
 }
 
 /**
@@ -185,8 +344,6 @@ int validargs(int argc, char **argv) {
     {
         // We also have to set the global_option's MSB to 1
         global_options = 0x80000000;
-        
-        printf("global_options is 0x%08x\n", global_options);
         
         // Then we return success so it won't be a EXIT_FAILURE
         return 0;
@@ -333,6 +490,13 @@ int validargs(int argc, char **argv) {
             inputSet = 1;
             outputSet = 1;
             
+            // We also have to check whether or not the input and output are
+            // birp format, if they are not both birp format we will return -1
+            if(inputValue != 2 || outputValue != 2)
+            {
+                return -1;
+            }
+            
             // Before we can set the variables we must check that
             // transformationSet hasn't been set yet
             if(transformationSet)
@@ -356,6 +520,13 @@ int validargs(int argc, char **argv) {
             inputSet = 1;
             outputSet = 1;
             
+            // We also have to check whether or not the input and output are
+            // birp format, if they are not both birp format we will return -1
+            if(inputValue != 2 || outputValue != 2)
+            {
+                return -1;
+            }
+            
             // If there is already a transformation set before this optional argument
             // we have to return -1 because we can't do multiple optional argument
             if(transformationSet)
@@ -377,6 +548,13 @@ int validargs(int argc, char **argv) {
             // inputSet and outputSet all to 1 since that means we are done with positional argument
             inputSet = 1;
             outputSet = 1;
+            
+            // We also have to check whether or not the input and output are
+            // birp format, if they are not both birp format we will return -1
+            if(inputValue != 2 || outputValue != 2)
+            {
+                return -1;
+            }
             
             // Again if the transformation has been set before we return -1 as error
             if(transformationSet)
@@ -434,6 +612,13 @@ int validargs(int argc, char **argv) {
             // inputSet and outputSet all to 1 since that means we are done with positional argument
             inputSet = 1;
             outputSet = 1;
+            
+            // We also have to check whether or not the input and output are
+            // birp format, if they are not both birp format we will return -1
+            if(inputValue != 2 || outputValue != 2)
+            {
+                return -1;
+            }
             
             if(transformationSet)
             {
@@ -496,6 +681,13 @@ int validargs(int argc, char **argv) {
             // inputSet and outputSet all to 1 since that means we are done with positional argument
             inputSet = 1;
             outputSet = 1;
+            
+            // We also have to check whether or not the input and output are
+            // birp format, if they are not both birp format we will return -1
+            if(inputValue != 2 || outputValue != 2)
+            {
+                return -1;
+            }
             
             if(transformationSet)
             {
