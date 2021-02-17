@@ -153,18 +153,45 @@ int birp_to_birp(FILE *in, FILE *out) {
     // This is the zoom trasnformation
     else if(transformationByte == 3)
     {
-        BDD_NODE * newRoot = bdd_zoom(root, 0,parameterByte);
+        // Find the minimal level first
+        int minimalLevel = bdd_min_level(width, height);
         
-        // We have to figure out the new width and height for the square
-        int scale = pow2(parameterByte);
+        BDD_NODE * newRoot = bdd_zoom(root, minimalLevel,parameterByte);
+        
+        int newWidth = 0;
+        int newHeight = 0;
+        
+        if(parameterByte <= 16)
+        {
+            // We have to figure out the new width and height for the square
+            int scale = pow2(parameterByte);
+            newWidth = width * scale;
+            newHeight = height * scale;
+        }
+        else
+        {
+            // If we are zooming out then we have to figure out the minimized dimension
+            int timesToDivide = 256 - parameterByte;
+            newWidth = divideBy2(width, timesToDivide);
+            newHeight = divideBy2(height, timesToDivide);
+            
+        }
         
         // Then we write it out to stdout
-        return img_write_birp(newRoot, width * scale, height * scale, out);
+        result = img_write_birp(newRoot, newWidth, newHeight, out);
     }
     // This is the rotate trasnformation
     else if(transformationByte == 4)
     {
+        // We have to figure out the level that we are passing first
+        int minimalLevel = bdd_min_level(width, height);
         
+        int expandedWidth = pow2(minimalLevel / 2);
+        
+        BDD_NODE * newRoot = bdd_rotate(root, minimalLevel);
+        
+        // Then finally we write it to stdout
+        result = img_write_birp(newRoot, expandedWidth, expandedWidth, out);
     }
 
 

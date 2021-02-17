@@ -1174,9 +1174,58 @@ BDD_NODE *bdd_map(BDD_NODE *node, unsigned char (*func)(unsigned char)) {
     return output;
 }
 
+int helper_recursion_bdd_rotate(BDD_NODE * root, int r, int c, int width, int passedLevel)
+{
+    // We will do our base case call right here which is when the width is 1
+    if(width == 1)
+    {
+        // Now we can just return the pixel value that's right here
+        // by calling bdd_lookup, because the width is 1
+        int pixelValue = bdd_apply(root, r, c);
+        
+        // Then we can just return it
+        return pixelValue;
+    }
+    else
+    {
+        // However, if we are here then we have to perform our 4 recursive call
+        // Let's calculate our mid point first
+        int half = width / 2;
+        int minusTwoLevel = passedLevel - 2;
+        
+        // Now our 4 recursive calls
+        int topLeft = helper_recursion_bdd_rotate(root, r, c, half, minusTwoLevel);
+        int topRight = helper_recursion_bdd_rotate(root, r, c + half, half, minusTwoLevel);
+        int botLeft = helper_recursion_bdd_rotate(root, r + half, c, half, minusTwoLevel);
+        int botRight = helper_recursion_bdd_rotate(root, r + half, c + half, half, minusTwoLevel);
+        
+        // Then we have to do bdd_lookup to construct our node with them rotated
+        int topNode = bdd_lookup(minusTwoLevel + 1, topRight, botRight);
+        int botNode = bdd_lookup(minusTwoLevel + 1, topLeft, botLeft);
+        
+        // After making the passedLevel - 1 node we will make our passedLevel node
+        int bigNode = bdd_lookup(passedLevel, topNode, botNode);
+        
+        // Then return this index back
+        return bigNode;
+    }
+}
+
 BDD_NODE *bdd_rotate(BDD_NODE *node, int level) {
-    // TO BE IMPLEMENTED
-    return NULL;
+    // Okay we will do bdd_rotate before we do bdd_zoom out    
+    // Level is used to figure out the width of the square
+    int powerOf2 = level / 2;
+    
+    // Then we use that as the power of 2 to get our width dimension for the square
+    int width = pow2(powerOf2);
+    
+    // And we will call our helper recursion function
+    int returnedIndex = helper_recursion_bdd_rotate(node, 0, 0, width, level);
+    
+    // Then we find the rotated BDD node we just have to add it to bdd_nodes
+    BDD_NODE * output = &*(bdd_nodes + returnedIndex);
+    
+    return output;    
 }
 
 int helper_recursion_bdd_zoom_in(BDD_NODE * node, int factor)
@@ -1249,6 +1298,142 @@ int helper_recursion_bdd_zoom_in(BDD_NODE * node, int factor)
     }
 }
 
+int helper_recursion_bdd_zoom_out(BDD_NODE * node, int factor, int level)
+{
+    // Let's start off by checking whether or not the node we are currently at the
+    // level where we have to make it a leaf
+    if(-(2*factor) >= node->level)
+    {
+        // If we somehow made it here then that means that it is definitely
+        // not a black pixel filled raster we have to return 255
+        return 255;        
+    }
+    else
+    {
+        // However if we are here then that means we are above the dangerous level hence we have 
+        // to do our recursive calls with the left and right children
+        int leftChildIndex = node->left;
+        int rightChildIndex = node->right;
+        
+        // Our left and right value in which we assumed it is black
+        int leftValue = 0;
+        int rightValue = 0;
+        
+        // First we check if the leftChildIndex is less than 256 
+        if(leftChildIndex < BDD_NUM_LEAVES)
+        {
+            // Then we check if it should be return white or black
+            if(leftChildIndex != 0)
+            {
+                // If it is not 0 then we will make it 255
+                leftValue = 255;
+            }
+        }
+        else
+        {
+            // However if it is indeed not a leaf-node then we will do our recursive calls
+            BDD_NODE toPass = *(bdd_nodes + leftChildIndex);
+            
+            leftValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
+        }
+        
+        // Then we will do the same to the right child
+        if(rightChildIndex < BDD_NUM_LEAVES)
+        {
+            // Then we check if it should be return white or black
+            if(rightChildIndex != 0)
+            {
+                rightValue = 255;
+            }
+        }
+        else
+        {
+            // However if it is indeed not a leaf-node then we will do our recursive call
+            BDD_NODE toPass = *(bdd_nodes + rightChildIndex);
+            
+            rightValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
+        }
+        
+        // Finally we can make our node here with the current level subtracted by 2k
+        int constructedNode = bdd_lookup(node->level + (2 * factor), leftValue, rightValue);
+        // printf("the node level is %d\n", node->level + 2 * factor);
+        return constructedNode;
+    }    
+    
+    
+    
+    // // Let's start off checking whether or not the current node is at the level before 2 * factor
+    // if(2 * factor == node->level)
+    // {
+    //     // If we are here then it can never a all black pixel
+    //     return 0;
+    // }
+    // else
+    // {
+    //     // However if we are not at 2 * factor + 1 then we will have to do our recursive case
+    //     int leftChildIndex = node->left;
+    //     int rightChildIndex = node->right;
+        
+    //     int leftValue = 0;
+    //     int rightValue = 0;
+        
+    //     if(leftChildIndex < BDD_NUM_LEAVES)
+    //     {
+    //         if(leftChildIndex != 0)
+    //         {
+    //             leftValue = 255;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         // Have to do our recursive call for the left child
+    //         // Make our node first
+    //         BDD_NODE toPass = *(bdd_nodes + leftChildIndex);
+            
+    //         if(toPass.level < 2 * factor)
+    //         {
+    //             leftValue = 255;
+    //         }
+    //         else
+    //         {
+    //             leftValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
+    //         }
+            
+    //     }
+        
+    //     // We do the same for the rightChildIndex
+    //     if(rightChildIndex < BDD_NUM_LEAVES)
+    //     {
+    //         if(rightChildIndex != 0)
+    //         {
+    //             rightValue = 255;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         // Have to do our recursive call for the right child
+    //         // Make our node first
+    //         BDD_NODE toPass = *(bdd_nodes + rightChildIndex);
+            
+    //         if(toPass.level < 2 * factor)
+    //         {
+    //             rightValue = 255;
+    //         }
+    //         else
+    //         {
+    //             rightValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
+    //         }
+            
+    //     }
+        
+    //     // Finally we construct our node together
+    //     int constructedIndex = bdd_lookup(node->level - (2 * factor), leftValue, rightValue);
+        
+    //     return constructedIndex;
+    // }
+    
+}
+
 BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor) {
     // Alright zoom next, becaues i'm a zoomer...
     // Level is used for zooming out
@@ -1263,9 +1448,14 @@ BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor) {
     else
     {
         // If we are here then we call zoomout
+        // to get the zoom factor all we have to do is subtract it with 256
+        int zoomOutFactor = 256 - factor;
+        zoomOutFactor = -1 * zoomOutFactor; // Make it negative
+        
+        returnedIndex = helper_recursion_bdd_zoom_out(node, zoomOutFactor, level);
     }
     
-    // Now outside we will get the nod
+    // Now outside we will get the node
     BDD_NODE * outputNode = &*(bdd_nodes + returnedIndex);    
 
     return outputNode;    

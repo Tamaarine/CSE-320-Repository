@@ -311,3 +311,18 @@ int fourByteIntoInteger(int firstByte, int secondByte, int thirdByte, int fourth
 {
     return (firstByte * myPow(256, 0)) + (secondByte * myPow(256, 1)) + (thirdByte * myPow(256, 2)) + (fourthByte * myPow(256, 3));
 }
+
+/**
+ * Returns num divide by 2 timesToDivide times 
+ */
+int divideBy2(int num, int timesToDivide)
+{
+    int output = num;
+    
+    for(int i=0;i<timesToDivide;i++)
+    {
+        output = output / 2;
+    }
+    
+    return output;
+}

@@ -58,6 +58,11 @@ void printSerialNumberChild(int serial, FILE *out);
  */
 int fourByteIntoInteger(int firstByte, int secondByte, int thirdByte, int fourthByte);
 
+/**
+ * Returns num divide by 2 timesToDivide times 
+ */
+int divideBy2(int num, int timesToDivide);
+
 void printRasterArray(unsigned char * raster, size_t size);
 
 void initialize_bdd_hash_map();
