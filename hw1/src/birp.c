@@ -122,6 +122,13 @@ int birp_to_birp(FILE *in, FILE *out) {
     int transformationByte = 0x00000F00 & global_options;
     transformationByte = transformationByte >> 8;
     
+    // This will get us the parameterByte
+    int parameterByte = 0x00FF0000 & global_options;
+    parameterByte = parameterByte >> 16;
+    
+    
+    //TODO PLEASE HANDLE THE CASE WHERE IT GIVES AN IMAGE THAT ALL BLACK BACK!
+    
     // This is the identity trasnformation
     if(transformationByte == 0)
     {
@@ -146,7 +153,13 @@ int birp_to_birp(FILE *in, FILE *out) {
     // This is the zoom trasnformation
     else if(transformationByte == 3)
     {
+        BDD_NODE * newRoot = bdd_zoom(root, 0,parameterByte);
         
+        // We have to figure out the new width and height for the square
+        int scale = pow2(parameterByte);
+        
+        // Then we write it out to stdout
+        return img_write_birp(newRoot, width * scale, height * scale, out);
     }
     // This is the rotate trasnformation
     else if(transformationByte == 4)

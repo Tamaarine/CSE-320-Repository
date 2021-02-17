@@ -78,12 +78,31 @@ int main(int argc, char **argv)
     // Test birp_to_pgm
     // int result = birp_to_pgm(stdin, stdout);
     
+    // unsigned char input4[] = {255,0,0,0,255,0,0,0,255,0,0,0,255,0,0,0};
+    // BDD_NODE * root = bdd_from_raster(4,4,input4);
+    
+    
+    // printf("%d\n", bdd_apply(root, 0,0));
+    // printf("%d\n", bdd_apply(root, 0,1));
+    // printf("%d\n", bdd_apply(root, 0,2));
+    // printf("%d\n", bdd_apply(root, 0,3));
+    // printf("%d\n", bdd_apply(root, 1,0));
+    // printf("%d\n", bdd_apply(root, 1,1));
+    // printf("%d\n", bdd_apply(root, 1,2));
+    // printf("%d\n", bdd_apply(root, 1,3));
+    // printf("%d\n", bdd_apply(root, 2,0));
+    // printf("%d\n", bdd_apply(root, 2,1));
+    // printf("%d\n", bdd_apply(root, 2,2));
+    // printf("%d\n", bdd_apply(root, 2,3));
+    // printf("%d\n", bdd_apply(root, 3,0));
+    // printf("%d\n", bdd_apply(root, 3,1));
+    // printf("%d\n", bdd_apply(root, 3,2));
+    // printf("%d\n", bdd_apply(root, 3,3));
 
     
     
     if(validargs(argc, argv))
     {
-        printf("%d\n", global_options);
         USAGE(*argv, EXIT_FAILURE);
     }
     if(global_options & HELP_OPTION)
@@ -100,13 +119,13 @@ int main(int argc, char **argv)
     int outputByte = 0x000000F0 & global_options;
     outputByte = outputByte >> 4;
 
-    // Transformation requires 8 shifts to the right
-    int transformationByte = 0x00000F00 & global_options;
-    transformationByte = transformationByte >> 8;
+    // // Transformation requires 8 shifts to the right
+    // int transformationByte = 0x00000F00 & global_options;
+    // transformationByte = transformationByte >> 8;
     
-    // Paramater requires 16 shifts to the right 
-    int parameterByte = 0x00FF0000 & global_options;
-    parameterByte = parameterByte >> 16;
+    // // Paramater requires 16 shifts to the right 
+    // int parameterByte = 0x00FF0000 & global_options;
+    // parameterByte = parameterByte >> 16;
     
     // This variable will be telling us whether or not the oepration is successful
     int result = 0;

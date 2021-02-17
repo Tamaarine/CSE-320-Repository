@@ -1016,16 +1016,65 @@ unsigned char helper_recursion_bdd_apply2(BDD_NODE * node, int r, int c, int lev
 unsigned char bdd_apply(BDD_NODE *node, int r, int c) {
     // Okay bdd_apply is next, wish me luck :')
     // We have to figure out the mask that we are passing in initially for our function
-    int maskR = 1;
-    int maskC = 1;
+    int maskR = 0;
+    int maskC = 0;
     
-    // node.level / 2 - 1 is how many shifts we are doing
-    int shifts = (node->level / 2) - 1;
+    // This is the flag that we will use to keep track of which mask we will shift
+    int shiftR = 0;
     
-    // Do the mask shifts before passing it in
-    maskR = maskR << shifts;
-    maskC = maskC << shifts;
+    // If the level is even then we will shiftR first
+    // if the level is odd then we will shiftC first
+    if(node->level % 2 == 0)
+    {
+        // ShiftR first because the level is even
+        shiftR = 1;
+    }
+    else
+    {
+        // shiftC first because the level is odd
+        shiftR = 0;
+    }
     
+    // Then we will need a for loop
+    for(int i=0;i<node->level;i++)
+    {
+        // If we are shifting maskR then we will go here
+        if(shiftR)
+        {
+            if(maskR == 0)
+            {
+                // We make maskR to 1 if it is 0 initially
+                maskR = 1;
+            }
+            else
+            {
+                // Else we will shift left maskR
+                maskR = maskR << 1;
+            }
+            
+            // Thne we flip the boolean
+            shiftR = 0;
+        }
+        else
+        {
+            // If we are not shifting maskR then we will shift maskC
+            if(maskC == 0)
+            {
+                // We will make maskC to 1 if it is 0 initially
+                maskC = 1;
+            }
+            else
+            {
+                // Else we will shift left maskC
+                maskC = maskC << 1;
+            }
+            
+            // Then we will flip the boolean
+            shiftR = 1;
+        }
+    }
+    
+    // Then we will call our recursive function
     int result = helper_recursion_bdd_apply2(node, r, c, node->level, maskR, maskC);
         
     return result;
@@ -1130,9 +1179,96 @@ BDD_NODE *bdd_rotate(BDD_NODE *node, int level) {
     return NULL;
 }
 
+int helper_recursion_bdd_zoom_in(BDD_NODE * node, int factor)
+{
+    // Let's just get the base case out of the way which is whenever we
+    // hit our special leaf-node that we passed in
+    if(node->level == 0)
+    {
+        // What do we do? We just return the pixel value without doing anything
+        // and left and right are the pixel value so it doesn't matter which one we return
+        return node->left;
+    }
+    else
+    {
+        // However if we are not at the leaf-node then we have to do some
+        // actual recursion calls
+        // Let's get the left and right child index first
+        int leftChildIndex = node->left;
+        int rightChildIndex = node->right;
+        
+        int leftReturnedValue = 0;
+        int rightReturnedValue = 0;
+        
+        // Then we check whether or not the our left and right child are a leaf-node or not
+        if(leftChildIndex < BDD_NUM_LEAVES)
+        {
+            // If the left child is indeed a leaf-node then we will do our special function calls
+            // Because it is a leaf-node we have to make our special leaf-node struct
+            BDD_NODE toPass = {0, leftChildIndex, leftChildIndex};
+            
+            // Then we do our recursion call
+            leftReturnedValue = helper_recursion_bdd_zoom_in(&toPass, factor);
+        }
+        else
+        {
+            // However if it is not a leaf-node yet then we will call it with the
+            // left child struct which we can get by getting it from bdd_nodes
+            BDD_NODE toPass = *(bdd_nodes + leftChildIndex);
+            
+            // Our recursive call
+            leftReturnedValue = helper_recursion_bdd_zoom_in(&toPass, factor);
+        }
+        
+        // Then we move on to do the right child
+        if(rightChildIndex < BDD_NUM_LEAVES)
+        {
+            // If the right child is indeed a leaf-node then we will do our special function calls
+            // Because it is a leaf-node we have to make our special leaf-node struct
+            BDD_NODE toPass = {0, rightChildIndex, rightChildIndex};
+            
+            // Then we do our recursion call
+            rightReturnedValue = helper_recursion_bdd_zoom_in(&toPass, factor);
+        }
+        else
+        {
+            // However if it is not a leaf-node yet then we will call it with the
+            // left child struct which we can get by getting it from bdd_nodes
+            BDD_NODE toPass = *(bdd_nodes + rightChildIndex);
+            
+            // Our recursive call
+            rightReturnedValue = helper_recursion_bdd_zoom_in(&toPass, factor);
+        }
+        
+        // Finally if we are here the nwe can assemble
+        // the node with the increased level
+        int constructedIndex = bdd_lookup(node->level + 2*factor, leftReturnedValue, rightReturnedValue);
+        
+        // And return this index
+        return constructedIndex;        
+    }
+}
+
 BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor) {
-    // TO BE IMPLEMENTED
-    return NULL;
+    // Alright zoom next, becaues i'm a zoomer...
+    // Level is used for zooming out
+    
+    int returnedIndex = 0;
+    
+    // Call zoomin
+    if(factor >= 0 && factor <= 16)
+    {
+        returnedIndex = helper_recursion_bdd_zoom_in(node, factor);
+    }
+    else
+    {
+        // If we are here then we call zoomout
+    }
+    
+    // Now outside we will get the nod
+    BDD_NODE * outputNode = &*(bdd_nodes + returnedIndex);    
+
+    return outputNode;    
 }
 
 /**
