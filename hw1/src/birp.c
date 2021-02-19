@@ -54,7 +54,7 @@ int birp_to_pgm(FILE *in, FILE *out) {
     BDD_NODE * root = img_read_birp(in, &width, &height);
     
     // The reading of birp has failed then we just return -1
-    if(root == NULL)
+    if(root == NULL || width * height * sizeof(unsigned char) > RASTER_SIZE_MAX)
     {
         return -1;
     }
@@ -208,6 +208,18 @@ int birp_to_birp(FILE *in, FILE *out) {
         // Find the minimal level first
         int minimalLevel = bdd_min_level(width, height);
         
+        // Here we make sure that the level is valid before we actually do the operations
+        if(parameterByte <= 16 && 2 * parameterByte + minimalLevel > BDD_LEVELS_MAX )
+        {
+            // This is for checking zoom in
+            return -1;
+        }
+        else if(parameterByte > 16 && minimalLevel - 2 * (256 - parameterByte) < 0)
+        {
+            // This is for checking zoom out
+            return -1;
+        }
+        
         BDD_NODE * newRoot = NULL;
         
         if(root->level != 69)
@@ -359,7 +371,7 @@ int birp_to_ascii(FILE *in, FILE *out) {
     
     // We add this error handling that if somehow the birp can't be read
     // we will return -1
-    if(root == NULL)
+    if(root == NULL || (width * height * sizeof(unsigned char) > RASTER_SIZE_MAX))
     {
         return -1;
     }
