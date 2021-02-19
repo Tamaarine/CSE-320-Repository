@@ -332,7 +332,7 @@ BDD_NODE *bdd_from_raster(int w, int h, unsigned char *raster) {
     {
         // If we are returning a leaf-node we will make a special node that
         // has all value level, left and right equal to the leaf-node pixel value
-        BDD_NODE onlyNode = {returnedValue, -1, -1};
+        BDD_NODE onlyNode = {69, returnedValue, returnedValue};
         
         // If everything is the same then we will return a special node that is located at
         // the last index of bdd_nodes
@@ -361,7 +361,7 @@ void bdd_to_raster(BDD_NODE *node, int w, int h, unsigned char *raster) {
     int rasterCounter = 0;
     
     // We will need a separate loop to handle if the root node given is a special node
-    if(node->left == -1 && node->right == -1)
+    if(node->level == 69)
     {
         // If we are here then that means the given root node is the special node with only 1 level
         for(int r=0;r<h;r++)
@@ -370,7 +370,7 @@ void bdd_to_raster(BDD_NODE *node, int w, int h, unsigned char *raster) {
             {
                 if(r < h && c < w)
                 {
-                    *(raster + rasterCounter) = node->level;
+                    *(raster + rasterCounter) = node->left;
                 }
                 else
                 {
@@ -429,8 +429,8 @@ int helping_bdd_serialize_recursive_function(char level, int left, int right, FI
             availableSerial ++;
             
             // If we did visited this node then we have to write to stdout
-            printf("@");
-            printf("%c", left);
+            fputc('@', out);
+            fputc(left, out);
         }
         // If it has already been visited then we don't do anything
         // and we can just return avaiableSerial
@@ -497,7 +497,9 @@ int helping_bdd_serialize_recursive_function(char level, int left, int right, FI
             
             char ascii_level = '@' + level;
             
-            printf("%c", ascii_level); // Printing the level we are currently at
+            // printf("%c", ascii_level); // Printing the level we are currently at
+            
+            fputc(ascii_level, out);
             
             int leftSerial = -1;
             int rightSerial = -1;
@@ -553,13 +555,16 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
     // we can begin working on the algorithm immediately
     
     // We have to take care of the incase where there is only one leaf-node and nothing else
-    if(node->left == -1 && node->right == -1)
+    if(node->level == 69)
     {
         // The only thing we can put is the @ + the level since it is the special node
         // I made it in bdd_from_raster such that if it was a node like that
         // then level will be the pixel value and left and right are both -1
         fputc('@', out);
-        fputc(node->level, out);
+        fputc(node->left, out);
+        
+        // Sucess
+        return 0;
     }
     
     // Initialize the bdd_index_map first
@@ -700,12 +705,12 @@ BDD_NODE *bdd_deserialize(FILE *in) {
     {
         // But if it did construct nodes then we will return that node
         int lastIndex = *(bdd_index_map + (serialCounter - 1));
-
+        
         // This rperesents the special case where there is only one node being made
         if(lastIndex < BDD_NUM_LEAVES)
         {
             // Then we have to construct our special node
-            BDD_NODE finalOutput = {lastIndex, -1, -1};
+            BDD_NODE finalOutput = {69, lastIndex, lastIndex};
             
             // Then we insert it to the last index of our table
             *(bdd_nodes + (BDD_NODES_MAX - 1)) = finalOutput;
@@ -1165,13 +1170,26 @@ BDD_NODE *bdd_map(BDD_NODE *node, unsigned char (*func)(unsigned char)) {
     int result = helper_recursion_bdd_map(node, func);
     
     // Perhaps add handling for the cases if we are given a picture of entirely one value
-    
-    // Then we will get the index of the node back in result
-    // we can just add it up 
-    BDD_NODE * output = bdd_nodes + result;
-    
-    // Then just return our output
-    return output;
+    if(result < BDD_NUM_LEAVES)
+    {
+        BDD_NODE finalOutput = {69, result, result};
+        
+        // Insert it into the tabl
+        *(bdd_nodes + (BDD_NODES_MAX - 1)) = finalOutput;
+        
+        BDD_NODE * output = (bdd_nodes + (BDD_NODES_MAX - 1));
+        
+        return output;
+    }
+    else
+    {
+        // Then we will get the index of the node back in result
+        // we can just add it up 
+        BDD_NODE * output = bdd_nodes + result;
+        
+        // Then just return our output
+        return output;
+    }
 }
 
 int helper_recursion_bdd_rotate(BDD_NODE * root, int r, int c, int width, int passedLevel)

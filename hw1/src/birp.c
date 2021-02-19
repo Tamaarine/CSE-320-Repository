@@ -110,7 +110,7 @@ int birp_to_birp(FILE *in, FILE *out) {
     int height = 0;
     
     // Calling img_read_birp to read the birp format into BDD
-    BDD_NODE * root = img_read_birp(stdin, &width, &height);
+    BDD_NODE * root = img_read_birp(in, &width, &height);
     
     int result = 0;
     
@@ -132,23 +132,64 @@ int birp_to_birp(FILE *in, FILE *out) {
     // This is the identity trasnformation
     if(transformationByte == 0)
     {
-        
+        // If it is the identity transformation we will just write the same thing out
+        // hopefully this will work
+        result = img_write_birp(root, width, height, out);
     }
     // This is the negate transformation
     else if(transformationByte == 1)
     {
-        BDD_NODE * newRoot = bdd_map(root, &negateOperation);
-        
-        // Then write the birp image out
-        result = img_write_birp(newRoot, width, height, stdout);
+        // If we have a special node then we have to do it differently
+        if(root->level == 69)
+        {
+            BDD_NODE specialRoot = {69, 255 - root->left, 255 - root->left};
+            result = img_write_birp(&specialRoot, width, height, out);
+        }
+        else
+        {
+            // However if it is not the special node then we are fine we can just proceed like normal
+            BDD_NODE * newRoot = bdd_map(root, &negateOperation);
+            
+            // Then write the birp image out
+            result = img_write_birp(newRoot, width, height, out);
+        }
     }
     // This is the threshold trasnformation
     else if(transformationByte == 2)
     {
-        BDD_NODE * newRoot = bdd_map(root, thresholdOperation);
-        
-        // Then we have to write the birp image again to stdout
-        result = img_write_birp(newRoot, width, height, stdout);
+        // We also have to handle the special node case
+        if(root->level == 69)
+        {
+            // Place holder
+            BDD_NODE * specialRoot = NULL;
+            
+            // This gets us the parameterByte
+            int parameterByte = 0x00FF0000 & global_options;
+            parameterByte = parameterByte >> 16;
+            
+            // Return 255
+            if(root->left >= parameterByte)
+            {
+                BDD_NODE toPass = {69, 255, 255};
+                specialRoot = &toPass;
+            }
+            // Return 0
+            else
+            {
+                BDD_NODE toPass = {69, 0, 0};
+                specialRoot = &toPass;
+            }
+            
+            // Then finally we write the image
+            result = img_write_birp(specialRoot, width, height, out);
+        }
+        else
+        {
+            BDD_NODE * newRoot = bdd_map(root, &thresholdOperation);
+            
+            // Then we have to write the birp image again to stdout
+            result = img_write_birp(newRoot, width, height, out);
+        }
     }
     // This is the zoom trasnformation
     else if(transformationByte == 3)
@@ -156,8 +197,20 @@ int birp_to_birp(FILE *in, FILE *out) {
         // Find the minimal level first
         int minimalLevel = bdd_min_level(width, height);
         
-        BDD_NODE * newRoot = bdd_zoom(root, minimalLevel,parameterByte);
+        BDD_NODE * newRoot = NULL;
         
+        if(root->level != 69)
+        {
+            // If it is a normal node then we will do a bdd_zoom call
+           newRoot = bdd_zoom(root, minimalLevel,parameterByte);
+        }
+        else
+        {
+            newRoot = root;
+        }
+        
+        // However if it is a normal node then we don't have to do anything
+                
         int newWidth = 0;
         int newHeight = 0;
         
@@ -174,7 +227,6 @@ int birp_to_birp(FILE *in, FILE *out) {
             int timesToDivide = 256 - parameterByte;
             newWidth = divideBy2(width, timesToDivide);
             newHeight = divideBy2(height, timesToDivide);
-            
         }
         
         // Then we write it out to stdout
@@ -183,21 +235,32 @@ int birp_to_birp(FILE *in, FILE *out) {
     // This is the rotate trasnformation
     else if(transformationByte == 4)
     {
-        // We have to figure out the level that we are passing first
-        int minimalLevel = bdd_min_level(width, height);
-        
-        int expandedWidth = pow2(minimalLevel / 2);
-        
-        BDD_NODE * newRoot = bdd_rotate(root, minimalLevel);
-        
-        // Then finally we write it to stdout
-        result = img_write_birp(newRoot, expandedWidth, expandedWidth, out);
+        // Handle special case we just return the same node
+        if(root->level == 69)
+        {
+            // We have to figure out the level that we are passing first
+            int minimalLevel = bdd_min_level(width, height);
+            
+            int expandedWidth = pow2(minimalLevel / 2);
+            
+            result = img_write_birp(root, expandedWidth, expandedWidth, out);
+        }
+        else
+        {
+            // We have to figure out the level that we are passing first
+            int minimalLevel = bdd_min_level(width, height);
+            
+            int expandedWidth = pow2(minimalLevel / 2);
+            
+            BDD_NODE * newRoot = bdd_rotate(root, minimalLevel);
+            
+            // Then finally we write it to stdout
+            result = img_write_birp(newRoot, expandedWidth, expandedWidth, out);
+        }
     }
-
-
-    
+        
+    // Then after the transformation we will return the results
     return result;
-    
 }
 
 int pgm_to_ascii(FILE *in, FILE *out) {
@@ -288,8 +351,47 @@ int birp_to_ascii(FILE *in, FILE *out) {
     {
         // Because that means it is a BDD with only 1 node at level 0
         // need to implement this
-        // TODO Need to do this
-        return -1;
+        unsigned char currentChar = root->level; // Level contains the pixel value
+        
+        // We need to write it using the original dimension which should be easy enough
+        for(int i=0;i<width * height;i++)
+        {
+            // Now we have are at a index that is not 0 and not a multiple of squareDimension
+            // we must pritn a new line
+            if(i != 0 && i % width == 0)
+            {
+                fputc('\n', out);
+            }
+            
+            // Then after setting the new lines we will begin converting our data into ascii
+            // the conversion is
+            // 0 - 63 = ' ' (space)
+            // 64 - 127 = '.'
+            // 128 - 191 = '*'
+            // 192 - 255 = '@'
+            if(currentChar >= 0 && currentChar <= 63)
+            {
+                fputc(' ', out);
+            }
+            else if(currentChar >= 64 && currentChar <= 127)
+            {
+                fputc('.', out);
+            }
+            else if(currentChar >= 128 && currentChar <= 191)
+            {
+                fputc('*', out);
+            }
+            else if(currentChar >= 192 && currentChar <= 255)
+            {
+                fputc('@', out);
+            }
+        }
+        
+        // Follow by a newline right here
+        fputc('\n', out);
+        
+        // And we return 0
+        return 0;
     }
     
     // Then we will call bdd_to_raster to convert it into a raster array

@@ -18,7 +18,7 @@
 
 // My own functions
 #include "helpingFunctions.h"
-#include "image.h"
+
 int main(int argc, char **argv)
 {    
     // Initialize the hash map
@@ -134,7 +134,8 @@ int main(int argc, char **argv)
     // pgm to pgm operation
     if(inputByte == 1 && outputByte == 1)
     {
-        
+        // We will never be given this case, if we are here then we return error 
+        USAGE(*argv, EXIT_FAILURE);
     }
     // pgm to birp operation
     else if(inputByte == 1 && outputByte == 2)
