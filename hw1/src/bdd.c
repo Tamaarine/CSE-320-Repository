@@ -1377,79 +1377,6 @@ int helper_recursion_bdd_zoom_out(BDD_NODE * node, int factor, int level)
         // printf("the node level is %d\n", node->level + 2 * factor);
         return constructedNode;
     }    
-    
-    
-    
-    // // Let's start off checking whether or not the current node is at the level before 2 * factor
-    // if(2 * factor == node->level)
-    // {
-    //     // If we are here then it can never a all black pixel
-    //     return 0;
-    // }
-    // else
-    // {
-    //     // However if we are not at 2 * factor + 1 then we will have to do our recursive case
-    //     int leftChildIndex = node->left;
-    //     int rightChildIndex = node->right;
-        
-    //     int leftValue = 0;
-    //     int rightValue = 0;
-        
-    //     if(leftChildIndex < BDD_NUM_LEAVES)
-    //     {
-    //         if(leftChildIndex != 0)
-    //         {
-    //             leftValue = 255;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         // Have to do our recursive call for the left child
-    //         // Make our node first
-    //         BDD_NODE toPass = *(bdd_nodes + leftChildIndex);
-            
-    //         if(toPass.level < 2 * factor)
-    //         {
-    //             leftValue = 255;
-    //         }
-    //         else
-    //         {
-    //             leftValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
-    //         }
-            
-    //     }
-        
-    //     // We do the same for the rightChildIndex
-    //     if(rightChildIndex < BDD_NUM_LEAVES)
-    //     {
-    //         if(rightChildIndex != 0)
-    //         {
-    //             rightValue = 255;
-    //         }
-    //     }
-    //     else
-    //     {
-    //         // Have to do our recursive call for the right child
-    //         // Make our node first
-    //         BDD_NODE toPass = *(bdd_nodes + rightChildIndex);
-            
-    //         if(toPass.level < 2 * factor)
-    //         {
-    //             rightValue = 255;
-    //         }
-    //         else
-    //         {
-    //             rightValue = helper_recursion_bdd_zoom_out(&toPass, factor, level);
-    //         }
-            
-    //     }
-        
-    //     // Finally we construct our node together
-    //     int constructedIndex = bdd_lookup(node->level - (2 * factor), leftValue, rightValue);
-        
-    //     return constructedIndex;
-    // }
-    
 }
 
 BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor) {
@@ -1471,6 +1398,17 @@ BDD_NODE *bdd_zoom(BDD_NODE *node, int level, int factor) {
         zoomOutFactor = -1 * zoomOutFactor; // Make it negative
         
         returnedIndex = helper_recursion_bdd_zoom_out(node, zoomOutFactor, level);
+    }
+    
+    // If after zoom out we are left with a leaf-node then we will return our special node
+    if(returnedIndex < BDD_NUM_LEAVES)
+    {
+        // We make our special node and return the pointer to it
+        BDD_NODE toInsert = {69, returnedIndex, returnedIndex};
+        
+        *(bdd_nodes + (BDD_NODES_MAX - 1)) = toInsert;
+        
+        return (bdd_nodes + (BDD_NODES_MAX - 1));
     }
     
     // Now outside we will get the node

@@ -53,6 +53,12 @@ int birp_to_pgm(FILE *in, FILE *out) {
     // We call img_read_birp to read the birp format
     BDD_NODE * root = img_read_birp(in, &width, &height);
     
+    // The reading of birp has failed then we just return -1
+    if(root == NULL)
+    {
+        return -1;
+    }
+    
     // Then we call bdd_to_raster
     bdd_to_raster(root, width, height, raster_data);
     
@@ -102,7 +108,6 @@ unsigned char thresholdOperation(unsigned char pixel)
     
 }
 
-
 int birp_to_birp(FILE *in, FILE *out) {
     // This is the place where we have to apply transformations
     // First we have to read the birp file
@@ -111,6 +116,12 @@ int birp_to_birp(FILE *in, FILE *out) {
     
     // Calling img_read_birp to read the birp format into BDD
     BDD_NODE * root = img_read_birp(in, &width, &height);
+    
+    // If we somehow got an NULL root then we will return -1
+    if(root == NULL)
+    {
+        return -1;
+    }
     
     int result = 0;
     
@@ -345,6 +356,13 @@ int birp_to_ascii(FILE *in, FILE *out) {
     int height = 0;
     
     BDD_NODE * root = img_read_birp(in, &width, &height);
+    
+    // We add this error handling that if somehow the birp can't be read
+    // we will return -1
+    if(root == NULL)
+    {
+        return -1;
+    }
     
     // If the returned root is the special node then we will return -1
     if(root->left == -1 && root->right == -1)
