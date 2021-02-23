@@ -172,11 +172,11 @@ int hashFunction(int left, int right, int level)
 {
     // The hash function is simple we take left and we take right
     // add 48 to both of them and multiply by 997 add them together as a sum
-    int leftValue = (left + 48) * 997;
-    int rightValue = (right + 48) * 997;
+    // int leftValue = (left + 48) * 997;
+    // int rightValue = (right + 48) * 997;
     
     // Then we add them together as a sum
-    int sum = leftValue + rightValue + level;
+    int sum = left + right + level;
     
     // Finally the output of the function is just sum mod by the hashTable size
     return sum % BDD_HASH_SIZE;
@@ -321,7 +321,17 @@ int divideBy2(int num, int timesToDivide)
     
     for(int i=0;i<timesToDivide;i++)
     {
-        output = output / 2;
+        // Even just divide normally
+        if(num % 2 == 0)
+        {
+            output = output / 2;
+        }
+        // Odd we have to divide and add 1
+        else
+        {
+            output = output / 2;
+            output ++;
+        }
     }
     
     return output;

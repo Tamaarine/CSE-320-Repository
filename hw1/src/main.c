@@ -38,7 +38,6 @@ int main(int argc, char **argv)
     {
         USAGE(*argv, EXIT_SUCCESS);
     }
-    
     // After the arguments are validated we can begin getting each portion of the
     // global_options to determine what functions we need to call    
     int inputByte = 0x0000000F & global_options;
