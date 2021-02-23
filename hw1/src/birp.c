@@ -248,8 +248,32 @@ int birp_to_birp(FILE *in, FILE *out) {
         {
             // If we are zooming out then we have to figure out the minimized dimension
             int timesToDivide = 256 - parameterByte;
-            newWidth = divideBy2(width, timesToDivide);
-            newHeight = divideBy2(height, timesToDivide);
+            
+            int divideIt = pow2(timesToDivide);
+            
+            // No neeed to add 1
+            if(width % divideIt == 0)
+            {
+                newWidth = width / divideIt;
+            }
+            else
+            {
+                // Need to add 1
+                newWidth = width / divideIt;
+                newWidth ++;
+            }
+            
+            // No neeed to add 1
+            if(height % divideIt == 0)
+            {
+                newHeight = height / divideIt;
+            }
+            else
+            {
+                // Need to add 1
+                newHeight = height / divideIt;
+                newHeight ++;
+            }
         }
         
         // Then we write it out to stdout
@@ -504,9 +528,21 @@ int validargs(int argc, char **argv) {
     // Let's just get the simpliest case out of the way which is when no flag is passed through
     // the commandline we will just return with -1 
     // After returning -1 it will go back to main and will exit with failure
+    
+    // Well update on this case because of Stark, he said that if bin/birp is entered
+    // this is just the same as the identity transformation, we will jsut set our
+    // global_options and return 0
     if(argc == 1)
     {
-        return -1;
+        // We set our global_options here
+        // with input as 0x2
+        // with output as 0x2
+        // with transformation as 0x0
+        // and parameterbyte as 0x0
+        global_options = 0x00000022;        
+        
+        // Then we can just return
+        return 0;
     }
     
     // Then if we are here then that means there is at least 2 or more arguments

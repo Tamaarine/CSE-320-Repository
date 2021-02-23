@@ -554,6 +554,9 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
     // When we call bdd_serialize the bdd_nodes table are already filled with the BDD_NODES
     // we can begin working on the algorithm immediately
     
+    // Call init_bdd_indexmap to clear the indexmap before using it
+    initialize_bdd_index_map();
+    
     // We have to take care of the incase where there is only one leaf-node and nothing else
     if(node->level == 69)
     {
