@@ -50,7 +50,7 @@ int bdd_lookup(int level, int left, int right) {
     
     // Okay first let's call our hasing function to get our hashed index
     // int hashedIndex = hashFunction(left, right);
-    int hashedIndex = hashFunction(level, left, right);
+    int hashedIndex = hashFunction(left, right, level);
     
     // Then we check in hashtable at hashedIndex to see if there is any entry
     if(*(bdd_hash_map + hashedIndex) == NULL)
@@ -553,9 +553,6 @@ int bdd_serialize(BDD_NODE *node, FILE *out) {
     // Oh boi here we go again, this is going to be really interesting
     // When we call bdd_serialize the bdd_nodes table are already filled with the BDD_NODES
     // we can begin working on the algorithm immediately
-    
-    // Call init_bdd_indexmap to clear the indexmap before using it
-    initialize_bdd_index_map();
     
     // We have to take care of the incase where there is only one leaf-node and nothing else
     if(node->level == 69)

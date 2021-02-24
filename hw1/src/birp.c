@@ -137,9 +137,6 @@ int birp_to_birp(FILE *in, FILE *out) {
     int parameterByte = 0x00FF0000 & global_options;
     parameterByte = parameterByte >> 16;
     
-    
-    //TODO PLEASE HANDLE THE CASE WHERE IT GIVES AN IMAGE THAT ALL BLACK BACK!
-    
     // This is the identity trasnformation
     if(transformationByte == 0)
     {
