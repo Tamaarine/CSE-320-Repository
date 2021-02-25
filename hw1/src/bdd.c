@@ -27,8 +27,6 @@
 int bdd_lookup(int level, int left, int right) {
     // Try this function first because it looks like the easiest one out of the three
     
-    // printf("Got here with level %d left %d right %d\n", level, left, right);
-    
     // This is what we are returning to the caller
     int indexOutput = 0;
     
@@ -78,7 +76,6 @@ int bdd_lookup(int level, int left, int right) {
         *(bdd_hash_map + hashedIndex) = &*(bdd_nodes + indexOutput);
         
         BDD_NODE * nodePtr2 = *(bdd_hash_map + hashedIndex);
-        // printf("Function: nodePtr2 is %d %d %d\n", nodePtr2->level, nodePtr2->left, nodePtr2->right);
         
         // Then we can return indexOutput
         return indexOutput;
@@ -100,7 +97,6 @@ int bdd_lookup(int level, int left, int right) {
             // if we have found the entry at hashedIndex
             // The formula is simple, what is stored in nodePtr subtract by the base address
             // Divide by the size of the BDD_NODE
-            // printf("nodePtr using & is %d\n", &nodePtr);
             
             BDD_NODE * ptr1 = bdd_nodes; // Pointer to the base_address
                     
@@ -183,35 +179,6 @@ int bdd_lookup(int level, int left, int right) {
     return indexOutput;
 }
 
-/**
- * This is the helper function that does the fixings
- * it is very similar to mergeSort in term that it will break it
- * down to the very end and then build it back up
- * 
- * Don't work don't use this code. Use the updated version
- */
-// int helper_recusive_function(unsigned char * raster, int left, int right, int passedLevel)
-// {
-//     // If left is less than right then we will continue to break it down
-//     if(left < right)
-//     {
-//         // Find the middle point
-//         int middle = left + (right - left)/2;
-        
-//         int returnLeft = helper_recusive_function(raster, left, middle, passedLevel - 1);
-//         int returnRight = helper_recusive_function(raster, middle + 1, right, passedLevel - 1);
-        
-//         // After we get the returned value from both we can
-//         // make our actual node from those two return value
-//         int constructedNodeIndex = bdd_lookup(passedLevel, returnLeft, returnRight);
-        
-//         return constructedNodeIndex;
-//     }
-//     // Means that we hit the base_node we have to return the actual value that is in that index
-//     // left or right doesn't really matter because they are equal anyway
-//     return *(raster + left);
-// }
-
 // Function prototypes so they won't argue which one comes first
 int helper_recursive_function_split_row(unsigned char * raster, int row, int col, int width, int height, int level, int wholeWidth, int originalWidth, int originalHeight);
 int helper_recursive_function_split_col(unsigned char * raster, int row, int col, int width, int height, int level, int wholeWidth, int originalWidth, int originalHeight);
@@ -240,8 +207,6 @@ int helper_recursive_function_split_row(unsigned char * raster, int row, int col
             // Else we return 0 because everything outside of the original square are 0
             return 0;
         }
-                
-        // printf("Split row %d\n", *(raster + (wholeWidth * row + col)));
     }
     else
     {
@@ -508,14 +473,12 @@ int helping_bdd_serialize_recursive_function(char level, int left, int right, FI
             {
                 // If the left is a leaf-node then we just have to print the matching serial number
                 leftSerial = *(bdd_index_map + left);
-                // printf("%c", *(bdd_index_map + left));
             }
             else
             {
                 // If it is not a leaf-node then we have to actually look for the serial number
                 // using bdd_lookup
                 BDD_NODE leftPtr = *(bdd_nodes + left);
-                // printf("%c", *(bdd_index_map + bdd_lookup(leftPtr.level, leftPtr.left, leftPtr.right)));
                 
                 leftSerial = *(bdd_index_map + bdd_lookup(leftPtr.level, leftPtr.left, leftPtr.right));
             }
@@ -524,14 +487,13 @@ int helping_bdd_serialize_recursive_function(char level, int left, int right, FI
             {
                 // If the left is a leaf-node then we just have to print the matching serial number
                 rightSerial = *(bdd_index_map + right);
-                // printf("%c", *(bdd_index_map + right));
             }
             else
             {
                 // If it is not a leaf-node then we have to actually look for the serial number
                 // using bdd_lookup
                 BDD_NODE rightPtr = *(bdd_nodes + right);
-                // printf("%c", *(bdd_index_map + bdd_lookup(rightPtr.level, rightPtr.left, rightPtr.right)));
+                
                 rightSerial = *(bdd_index_map + bdd_lookup(rightPtr.level, rightPtr.left, rightPtr.right));
             }
             

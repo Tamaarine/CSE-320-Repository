@@ -182,15 +182,6 @@ int hashFunction(int left, int right, int level)
     return sum % BDD_HASH_SIZE;
 }
 
-void printRasterArray(unsigned char * raster, size_t size)
-{
-    for(int i=0;i<size;i++)
-    {
-        printf("%c ", *(raster + i));
-    }
-}
-
-
 void initialize_bdd_hash_map()
 {
     for(int i=0;i<BDD_HASH_SIZE;i++)

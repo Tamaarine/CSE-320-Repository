@@ -343,7 +343,6 @@ int pgm_to_ascii(FILE *in, FILE *out) {
         // meaning that i is a multiple of 8 hence we have to print a newline
         if(i != 0 && i % width == 0)
         {
-            // printf("\n");
             fputc('\n', out);
         }
         
@@ -351,25 +350,21 @@ int pgm_to_ascii(FILE *in, FILE *out) {
         if(currentChar >= 0 && currentChar <= 63)
         {
             // Print a white space
-            // printf(" ");
             fputc(' ', out);
         }
         else if(currentChar >= 64 && currentChar <= 127)
         {
             // Print a period
-            // printf(".");
             fputc('.', out);
         }
         else if(currentChar >= 128 && currentChar <= 191)
         {
             // Print an asterisk
-            // printf("*");
             fputc('*', out);
         }
         else if(currentChar >= 192 && currentChar <= 255)
         {
             // Print @
-            // printf("@");
             fputc('@', out);
         }
     }
@@ -950,10 +945,6 @@ int validargs(int argc, char **argv) {
     
     // Now if we are here then that means -i, -o and transformation along with parameter is set in its corresponding variable
     // we can begin assembling the global_options variable by doing bitwise operation
-    // printf("Inputvalue is 0x%08x\n", inputValue); // Print inputValue in hexadecimal to see the result
-    // printf("Outputvalue is 0x%08x\n", outputValue); // Print outputValue in hexadecimal to see the result
-    // printf("TransforamtionValue is 0x%08x\n", transformationValue); // Print transformationValue in hexadecimal to see the result
-    // printf("parameterValue is 0x%08x\n", parameterValue); // Print parameterValue in hexadecimal to see the result
     
     // Now we must shift each value correctly and ORing them together to create the final global_option
     // parameterValue is shifted left 16 bits

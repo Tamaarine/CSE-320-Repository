@@ -71,25 +71,18 @@ int main(int argc, char **argv)
         // We can call pgm_to_birp
         result = pgm_to_birp(stdin, stdout);
         
-        // Done testing number # 2
-        
     }
     // pgm to ascii operation
     else if(inputByte == 1 && outputByte == 3)
     {
         // We will call pgm_to_ascii
         result = pgm_to_ascii(stdin, stdout);
-        
-        // Done testing number # 2
-        
     }
     // birp to pgm operation
     else if(inputByte == 2 && outputByte == 1)
     {
         // we will call birp_to_pgm
         result = birp_to_pgm(stdin, stdout);
-        
-        // DONE TESTING, KEEP IN MIND THAT COMMENTS ARE IN THOSE FILES
     }
     // birp to birp operation
     else if(inputByte == 2 && outputByte == 2)
@@ -102,8 +95,6 @@ int main(int argc, char **argv)
     {
         // Call birp_to_ascii
         result = birp_to_ascii(stdin, stdout);
-        
-        // This one needs confirmation from professor
     }
     
     if(result == 0)
@@ -114,12 +105,6 @@ int main(int argc, char **argv)
     {
         return EXIT_FAILURE;
     }
-    
-    // Just trying out my global_options see if it is correct
-    // printf("Input %d\n", inputByte);    
-    // printf("Output %d\n", outputByte);    
-    // printf("Transformation %d\n", transformationByte);    
-    // printf("Parameter %d\n", parameterByte);    
 }
 
 /*
