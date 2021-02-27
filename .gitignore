@@ -1,4 +1,6 @@
 bin/
 build/
-extratest.c
-scripts/
+test_output/
+*~
+*.out
+*.bak
