@@ -563,8 +563,10 @@ static void output_text_tex(dr, type, string, code)
     if (com_tex[code] != NULL )
       (void) fprintf(dr->outfile,"%s\\ ",com_tex[code]);
     else
+    {
       (void) fprintf(dr->outfile,"%s\\ ",com_short[code]);
-      break;
+    }
+    break;
   case T_TEXT:
     (void) fprintf(dr->outfile," %s ",string);
     break;
