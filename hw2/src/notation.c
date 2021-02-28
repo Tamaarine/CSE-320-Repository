@@ -502,8 +502,8 @@ void init_move(m)
      depl *m;
 #endif
 {
-  m->move= 1 ;
-  m->whiteturn = TRUE ;
+  m->move= 0 ;
+  m->whiteturn = FALSE ;
 }
 
 #ifdef __STDC__
@@ -536,8 +536,8 @@ depl * add_trailing_move(mo)
   mo->next->next = (depl *) NULL;
   mo->next->sub  = (depl *) NULL;
 
-  mo->next->whiteturn = !( m->whiteturn ) ;
   mo->next->move = mo->move;
+  mo->next->whiteturn = !( m->whiteturn ) ;
   if ( mo->next->whiteturn) {
     mo->next->move++;
   }
@@ -1841,9 +1841,9 @@ int notation_main(argc,argv)
   yyin = infile ;
   yyout = stderr ;
 
-  /*init_parse(m); */
+  init_parse(m);
   yylex();
-
+  
   if ((count == 0) && !error_flag)
     output_board(dr,tos);
 

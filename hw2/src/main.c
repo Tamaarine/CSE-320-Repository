@@ -3,7 +3,6 @@
  * IT WILL BE REPLACED DURING GRADING
  */
 #include <stdlib.h>
-
 extern int notation_main(int argc, char *argv[]);
 
 int main(int argc, char *argv[]) {
