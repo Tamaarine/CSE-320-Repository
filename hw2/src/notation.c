@@ -484,7 +484,7 @@ depl * new_move()
   int i; 
   static int counter = 0;
 
-  tmp = (depl *) malloc (sizeof(depl *));
+  tmp = (depl *) malloc (sizeof(depl));
   ALLOCP(tmp);
   for (i=0; i < ((sizeof (depl))/ sizeof (int)) ; i++)
     ((int *) tmp)[i] = 0;
@@ -1828,8 +1828,8 @@ int notation_main(argc,argv)
   init_board(tos);
 
   /* allocation of move descriptor */
-  m->type = VOID ;
-  /*init_move(m);*/
+  m = new_move();
+  init_move(m);
   
   /* allocation of the play descriptor */
   theplay = (play *) malloc (sizeof(play)) ;
