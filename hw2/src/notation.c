@@ -387,7 +387,7 @@ static int find_keyword(tab, nbentry,defaut,key,warning)
   int i ;
 
   for(i=0; (i< nbentry) ;i++)
-    if (strcmp(tab[i],key))
+    if (strcmp(tab[i],key) == 0)
       return(i);
 
   /* we failed to find the keyword */
@@ -1796,6 +1796,7 @@ int notation_main(argc,argv)
      char * argv[];
 #endif
 {
+  // printf("langauge is %d\n", find_keyword(t_language, NBLANGUAGES, 11, "english", TRUE));
   (void) fprintf(stderr,"%s\n",version_string);
   
   /* allocation of driver descriptor */
@@ -1859,6 +1860,10 @@ int notation_main(argc,argv)
   /* close files */
   close_files();
 
+  free(tos); // Valid
+  // free(m); // Not valid
+  free(dr);
+  free(theplay);
   /* exit properly */
   return 0;
 }
