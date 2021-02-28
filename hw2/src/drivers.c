@@ -12,6 +12,7 @@
 #include "chesstype.h"
 #include "notation.h"
 #include "drivers.h"
+#include "string.h"
 
 /* postscript characters translation table
    one entry per piece
