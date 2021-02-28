@@ -373,8 +373,10 @@ static void output_text_generic(dr, type, string, code)
     if (com_short[code] != NULL )
       (void) fprintf(dr->outfile," %s ",com_short[code]);
     else
+    {
       (void) fprintf(dr->outfile," %s ",com_long[code]);
-      break;
+    }
+    break;
   case T_TEXT:
     (void) fprintf(dr->outfile," %s ",string);
     break;
