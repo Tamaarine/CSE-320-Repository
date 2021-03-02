@@ -17,5 +17,6 @@ extern int yylex(/*void*/);
 extern int yylex(/*void*/);
 #endif
 
+extern int yylex_destroy(void);
 
 #endif

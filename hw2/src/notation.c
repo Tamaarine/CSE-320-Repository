@@ -536,8 +536,8 @@ depl * add_trailing_move(mo)
   mo->next->next = (depl *) NULL;
   mo->next->sub  = (depl *) NULL;
 
-  mo->next->move = mo->move;
   mo->next->whiteturn = !( m->whiteturn ) ;
+  mo->next->move = mo->move;
   if ( mo->next->whiteturn) {
     mo->next->move++;
   }
@@ -1676,7 +1676,7 @@ int parse_options(argc,argv)
 	if  ((narg+1) >= argc )
 	  fatal((stderr,"missing argument to %s option",cp));
 	narg++ ;
-
+  
 	i=0;
 	while (isdigit(argv[narg][i])) {
 	  move_to_display[nb_move_to_dsp] = 0;
@@ -1859,11 +1859,36 @@ int notation_main(argc,argv)
 
   /* close files */
   close_files();
-
+  
+  depl * firstMove = m;
+  while(firstMove->prev != NULL)
+  {
+    firstMove = firstMove->prev;
+  }
+  while(firstMove != NULL)
+  {
+    if(firstMove->sub != NULL)
+    {
+      free(firstMove->sub);
+    }
+    
+    if(firstMove->next != NULL)
+    {
+      firstMove = firstMove->next;
+      free(firstMove->prev);
+    }
+    else
+    {
+      break;
+    }
+  }
+  
+  
   free(tos); // Valid
   // free(m); // Not valid
   free(dr);
   free(theplay);
+  yylex_destroy();
   /* exit properly */
   return 0;
 }
