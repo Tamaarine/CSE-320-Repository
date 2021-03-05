@@ -764,7 +764,8 @@ void exit_variation()
     output_variation(dr,VARIATION_OUT);
 
     l--;
-    free(m);
+    // free(m);
+    free(tos); // Free m then we also have to free tos
     m = stack[l].d ;
     tos = stack[l].b ;
 
@@ -1786,6 +1787,43 @@ play *p;
   }
 }
 
+void free_recursively(depl * d)
+{
+  if(d->sub != NULL)
+  {
+    free_recursively(d->sub);
+    
+    depl * tmp1 = d->sub->prev;
+    if(tmp1 != NULL)
+    {
+      if(tmp1 != d)
+      {
+        tmp1->next = NULL;
+      }
+    }
+    free(d->sub);
+    d->sub = NULL;
+  }
+  
+  if(d->next != NULL)
+  {
+    free_recursively(d->next);
+    
+    depl * tmp1 = d->next->prev;
+    if(tmp1 != NULL)
+    {
+      if(tmp1 != d)
+      {
+        tmp1->next = NULL;
+      }
+    }
+    free(d->next);
+    d->next = NULL;
+  }
+  
+  return;
+}
+
 /* ------------- main --------------------- */
 
 #ifdef __STDC__
@@ -1796,7 +1834,6 @@ int notation_main(argc,argv)
      char * argv[];
 #endif
 {
-  // printf("langauge is %d\n", find_keyword(t_language, NBLANGUAGES, 11, "english", TRUE));
   (void) fprintf(stderr,"%s\n",version_string);
   
   /* allocation of driver descriptor */
@@ -1861,34 +1898,18 @@ int notation_main(argc,argv)
   close_files();
   
   depl * firstMove = m;
+  
   while(firstMove->prev != NULL)
   {
     firstMove = firstMove->prev;
   }
-  while(firstMove != NULL)
-  {
-    if(firstMove->sub != NULL)
-    {
-      free(firstMove->sub);
-    }
-    
-    if(firstMove->next != NULL)
-    {
-      firstMove = firstMove->next;
-      free(firstMove->prev);
-    }
-    else
-    {
-      break;
-    }
-  }
   
-  
-  free(tos); // Valid
-  // free(m); // Not valid
+  free_recursively(firstMove);
+  free(firstMove);
+  free(tos);
   free(dr);
   free(theplay);
   yylex_destroy();
-  /* exit properly */
+  // /* exit properly */
   return 0;
 }
