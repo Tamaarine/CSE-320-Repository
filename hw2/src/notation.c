@@ -1166,6 +1166,8 @@ int clear_pos(lig,col)
   return(TRUE);
 }
 
+void free_everything();
+
 /* configure the board */
 #ifdef __STDC__
 int configure(void)
@@ -1222,6 +1224,7 @@ int execute_move()
     (void) fprintf(dr->outfile, "\nLast position encountered:\n");
     output_board(dr,tos);
     close_files();
+    free_everything();
     exit(0);
   }
 
@@ -1233,6 +1236,7 @@ int execute_move()
 	if (stop_at_display) {
 	  output_end(dr);
 	  close_files();
+    free_everything();
 	  exit(0);
 	}
       }
@@ -1833,6 +1837,23 @@ void free_recursively(depl * d)
   return;
 }
 
+void free_everything()
+{
+  depl * firstMove = m;
+  
+  while(firstMove->prev != NULL)
+  {
+    firstMove = firstMove->prev;
+  }
+  
+  free_recursively(firstMove);
+  free(firstMove);
+  free(tos);
+  free(dr);
+  free(theplay);
+  yylex_destroy();
+}
+
 /* ------------- main --------------------- */
 
 #ifdef __STDC__
@@ -1906,23 +1927,11 @@ int notation_main(argc,argv)
   /* close files */
   close_files();
   
-  depl * firstMove = m;
-  
-  while(firstMove->prev != NULL)
-  {
-    firstMove = firstMove->prev;
-  }
-  
   int exit_status = 0;
   if(m->prev == NULL)
     exit_status = 1;
   
-  free_recursively(firstMove);
-  free(firstMove);
-  free(tos);
-  free(dr);
-  free(theplay);
-  yylex_destroy();
+  free_everything();
   // /* exit properly */
   return exit_status;
 }
