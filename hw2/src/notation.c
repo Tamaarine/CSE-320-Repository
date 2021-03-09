@@ -386,7 +386,10 @@ static int find_keyword(tab, nbentry,defaut,key,warning)
 #endif
 {
   int i ;
-
+  
+  if(key == NULL)
+    return defaut;
+    
   for(i=0; (i< nbentry) ;i++)
     if (strcmp(tab[i],key) == 0)
       return(i);
@@ -531,6 +534,11 @@ depl * add_trailing_move(mo)
      depl * mo;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return NULL;
+  // }
   mo->next = new_move();
 
   mo->next->prev = mo;
@@ -553,6 +561,12 @@ static depl * add_variation(mo)
      depl * mo;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return NULL;
+  // }
+  
   depl *ip ; /* insertion point */
 
   ip = mo ;
@@ -572,13 +586,13 @@ static depl * add_variation(mo)
   {
     ip->sub->whiteturn =  mo->prev->whiteturn  ;
     ip->sub->move = mo->prev->move ;
-
-    return(ip->sub);
   }
   else
   {
-    return NULL;
+    ip->sub->whiteturn = mo->whiteturn;
+    ip->sub->move = mo->move;
   }
+  return(ip->sub);  
 }
 
 
@@ -670,6 +684,12 @@ void undo_move(g,m)
      depl *m;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return;
+  // }
+  
   switch (m->type) {
   case MOVE:
     clsboard(g,m->tolig,m->tocol) ;
@@ -741,7 +761,7 @@ void enter_variation()
     /* create new */
     tos = new_board();
     (void) copy_board(stack[l].b, tos);
-
+    
     /* A variation FOLLOWS the main line 
        so we need to backtrack one move
        */
@@ -1008,9 +1028,21 @@ int check_move(m)
   c1 = m->fromcol;
   l2 = m->tolig;
   c2 = m->tocol;
+  
+  if(m->piece == KING && c2 - c1 == 2)
+  {
+    m->type = PETITROQUE;
+  }
+  else if(m->piece == KING && c2 - c1 == -2)
+  {
+    m->type = GRANDROQUE;
+  }
 
   if ((m->type == GRANDROQUE) || (m->type == PETITROQUE))
+  {
     return(check_roque());
+  }
+  
 
   if ((tos->board[l1][c1] != m->piece)||
       (tos->color[l1][c1] != CURCOLOR(m))){
@@ -1443,11 +1475,19 @@ int parse_comment(com)
 #ifdef __STDC__
 int parse_keyword(char *token, char *text)
 #else
-int parse_keyword(token,text)
+int 
+
+(token,text)
      char *token;
      char *text;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return FALSE;
+  // }
+  
   char c;
 
   switch (find_keyword(keywords, NBKEYWORD, KNULL, token, TRUE)) {
@@ -1529,6 +1569,12 @@ int parse_roque(token)
 #endif
 { 
   int i;
+  
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return FALSE;
+  // }
 
   for (i=0; i < NBROQUE && (strcmp(c_roque[i],token)!=0); i++) ;
   if ( i < NBROQUE ) {
@@ -1557,6 +1603,12 @@ int  parse_move(token)
      char *token;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return FALSE;
+  // }
+  
   // fprintf(stderr, "The token is %s\n", token);
   register int i;
   int correcte = FALSE ;
@@ -1597,6 +1649,11 @@ void init_parse(m)
      depl * m ;
 #endif
 {
+  // if(m == NULL)
+  // {
+  //   error_flag = TRUE;
+  //   return;
+  // }
 
   /* global position and piece variable initialised to 0
      */
@@ -1632,138 +1689,6 @@ int parse_options(argc,argv)
      char * argv[];
 #endif
 {
-  // int narg =1 ;
-  // int i;
-  // register int c;
-  // char cp[132];
-  // char chaine[MAXTOKLEN];
-
-  // infile = stdin;
-  // dr->outfile = stdout;
-  // nb_move_to_dsp = 0;
-
-  // while (narg < argc)
-  // {
-  //   (void)strcpy(cp, argv[narg]);
-  //   switch (cp[0])
-  //   {
-  //   case '-':
-  //     switch (cp[1])
-  //     {
-  //     case 'f': /* from langage */
-  //       if ((narg + 1) >= argc)
-  //         fatal((stderr, "missing argument to %s option", cp));
-  //       narg++;
-  //       in_language = find_keyword(t_language, NBLANGUAGES,
-  //                                  DEFAULT_INPUT_LANGUAGE,
-  //                                  argv[narg], TRUE);
-  //       break;
-  //     case 't': /* to langage */
-  //       if ((narg + 1) >= argc)
-  //         fatal((stderr, "missing argument to %s option", cp));
-  //       narg++;
-  //       out_language = find_keyword(t_language, NBLANGUAGES,
-  //                                   DEFAULT_OUTPUT_LANGUAGE,
-  //                                   argv[narg], TRUE);
-  //       break;
-  //     case 'o': /* next arg is output file */
-  //       narg++;
-  //       if ((dr->outfile = fopen(argv[narg], "w+")) == NULL)
-  //       {
-  //         (void)fprintf(stderr, "can't open %s output file\n", argv[narg]);
-  //         (void)fprintf(stderr, "assume stdout for output\n");
-  //       }
-  //       break;
-  //     case 'e':
-  //       if ((narg + 1) >= argc)
-  //         fatal((stderr, "missing argument to %s option", cp));
-  //       narg++;
-
-  //       i = 0;
-  //       nb_move_to_dsp = 0;
-  //       move_to_display[nb_move_to_dsp] = 0;
-  //       while (isdigit(argv[narg][i]))
-  //       {
-  //         move_to_display[nb_move_to_dsp] =
-  //             ((int)argv[narg][i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
-  //         i++;
-  //       }
-  //       nb_move_to_dsp++;
-  //       stop_at_display = TRUE;
-  //       break;
-  //     case 'c':
-  //       if ((narg + 1) >= argc)
-  //         fatal((stderr, "missing argument to %s option", cp));
-  //       narg++;
-
-  //       i = 0;
-  //       while (isdigit(argv[narg][i]))
-  //       {
-  //         move_to_display[nb_move_to_dsp] = 0;
-  //         while (isdigit(argv[narg][i]))
-  //         {
-  //           move_to_display[nb_move_to_dsp] =
-  //               ((int)argv[narg][i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
-  //           i++;
-  //         }
-  //         nb_move_to_dsp++;
-
-  //         if (nb_move_to_dsp > NB_MOVE_TO_DISP)
-  //           fatal((stderr, "max. number of move to display exceeded"));
-
-  //         /* process next number */
-  //         if (argv[narg][i] == ',')
-  //           i++;
-  //       }
-  //       break;
-  //     case 'a': /* algebraic output */
-  //       dr->output_move_format = ALGEBRAIC;
-  //       break;
-  //     case 's': /* shortened output */
-  //       dr->output_move_format = SHORTENED;
-  //       break;
-  //     case 'b': /* display only the board, no move */
-  //       dr->only_board = TRUE;
-  //       break;
-  //     case 'd': /* output driver */
-  //       if ((narg + 1) >= argc)
-  //         fatal((stderr, "missing argument to %s option", cp));
-  //       narg++;
-  //       driver = find_keyword(t_output, NB_DRIVER, DEFAULT_DRIVER,
-  //                             argv[narg], TRUE);
-  //       break;
-  //     case 'i': /* no headers */
-  //       dr->print_headers = FALSE;
-  //       break;
-  //     case 'v': /* print version */
-  //       /* this already done, so exit() */
-  //       exit(0);
-  //       break;
-  //     case 'h': /* help file */
-  //       (void)strcpy(chaine, LIB_DIR);
-  //       if ((fhelp = fopen(strcat(chaine, HELP_FILE), "r")) == NULL)
-  //         fatal((stderr, "Can't find help file.\n"));
-  //       else
-  //       {
-  //         while ((c = getc(fhelp)) != EOF)
-  //           (void)fputc(c, stderr);
-  //         (void)fclose(fhelp);
-  //         exit(0);
-  //       }
-  //       break;
-  //     default:
-  //       error((stderr, "\nUnknown command line options %s\n", cp));
-  //       break;
-  //     }
-  //     break;
-  //   default: /* assume this is the input file */
-  //     if ((infile = fopen(cp, "r")) == NULL)
-  //       fatal((stderr, "can't open %s input file\n", cp));
-  //   }
-  //   narg++;
-  // } /* process next arg */
-  // return (argc);
-
   static struct option long_options[] = {
     {"long-algebraic", no_argument, 0, 'a'},
     {"short-algebraic", no_argument, 0, 's'},
@@ -1790,7 +1715,7 @@ int parse_options(argc,argv)
   
   while(1)
   {
-    c = getopt_long(argc, argv, "asf:t:o:c:e:bd:ihv", long_options, &option_index);
+    c = getopt_long(argc, argv, ":asf:t:o:c:e:bd:ihv", long_options, &option_index);
     
     // The arguments are done parsing we just break out of the loop
     if(c == -1)
@@ -1857,8 +1782,8 @@ int parse_options(argc,argv)
         dr->print_headers = FALSE;
         break;
       case 'v':
-        free(dr); // Free the driver
         close_files();
+        free(dr); // Free the driver
         exit(0);
         break;
       case 'h':
@@ -1874,6 +1799,17 @@ int parse_options(argc,argv)
           free(dr); // Free the driver
           exit(0);
         }
+        break;
+      case ':':
+        fprintf(stderr, "missing argument to %c option\n", optopt);
+        close_files();
+        free(dr);
+        exit(1);
+      default:
+        fprintf(stderr, "Unknown command line options %c\n", optopt);
+        close_files();
+        free(dr);
+        exit(1);
         break;
     }
     
@@ -2003,7 +1939,7 @@ int notation_main(argc,argv)
 {
   // Bugs still need to fix
   // TODO put input throguh gnu and feed it back it doesn't put the right castling move
-  // TODO Give drvers.c it will give seg fault
+  // TODO Give drvers.c it will give seg fault HOW DO I KNOW?
   (void) fprintf(stderr,"%s\n",version_string);
   
   /* allocation of driver descriptor */
@@ -2058,9 +1994,13 @@ int notation_main(argc,argv)
   if (error_flag) {
     error((stderr,"\nLast valid position:\n"));
     output_board(dr,tos);
-    fatal((stderr,"\nToo many errors"));
+    close_files();
+    free_everything();
+    fprintf(stderr, "\nToo many errors");
+    exit(1);
+    // fatal((stderr,"\nToo many errors"));
   }
-      
+  
   /* terminates output files */
   output_end(dr);
 
@@ -2068,7 +2008,7 @@ int notation_main(argc,argv)
   close_files();
   
   int exit_status = 0;
-  if(m->prev == NULL)
+  if(m->prev == NULL || error_flag)
     exit_status = 1;
   
   free_everything();

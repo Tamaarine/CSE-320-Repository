@@ -570,7 +570,7 @@ static char * comment();
 static int yy_init_globals ( void );
 
 /* Accessor methods to globals.
-   These are made visible to non-reentrant scanners for convenience. */
+   These are made visible to non-ree ntrant scanners for convenience. */
 
 int yylex_destroy ( void );
 
