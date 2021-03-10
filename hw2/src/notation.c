@@ -243,6 +243,8 @@ static stack_elt stack[VARIATION_MAX];
 #define NBETAT 	11
 #define NBCLAS 	8
 
+void free_everything();
+
 /* successor of state */
 static int transit[NBETAT][NBCLAS] = { 
 /*   P a-h 1-8   -   x   =  \0   ? */ 
@@ -586,13 +588,17 @@ static depl * add_variation(mo)
   {
     ip->sub->whiteturn =  mo->prev->whiteturn  ;
     ip->sub->move = mo->prev->move ;
+    return(ip->sub);  
   }
   else
   {
-    ip->sub->whiteturn = mo->whiteturn;
-    ip->sub->move = mo->move;
+    // ip->sub->whiteturn = mo->whiteturn;
+    // ip->sub->move = mo->move;
+    free(stack[dr->variation].b);
+    close_files();
+    free_everything();
+    exit(1);
   }
-  return(ip->sub);  
 }
 
 
@@ -1029,11 +1035,11 @@ int check_move(m)
   l2 = m->tolig;
   c2 = m->tocol;
   
-  if(m->piece == KING && c2 - c1 == 2)
+  if(c2 > c1 && c2 - c1 == 2 && m->piece == KING)
   {
     m->type = PETITROQUE;
   }
-  else if(m->piece == KING && c2 - c1 == -2)
+  else if(c2 - c1 == -2 && m->piece == KING)
   {
     m->type = GRANDROQUE;
   }
@@ -1042,7 +1048,6 @@ int check_move(m)
   {
     return(check_roque());
   }
-  
 
   if ((tos->board[l1][c1] != m->piece)||
       (tos->color[l1][c1] != CURCOLOR(m))){
@@ -1199,8 +1204,6 @@ int clear_pos(lig,col)
   return(TRUE);
 }
 
-void free_everything();
-
 /* configure the board */
 #ifdef __STDC__
 int configure(void)
@@ -1257,7 +1260,6 @@ int execute_move()
     (void) fprintf(dr->outfile, "\nLast position encountered:\n");
     output_board(dr,tos);
     close_files();
-    free_everything();
     exit(0);
   }
 
@@ -1740,9 +1742,10 @@ int parse_options(argc,argv)
         i = 0;
         nb_move_to_dsp = 0;
         move_to_display[nb_move_to_dsp] = 0;
-        while(isdigit(optarg[i]))
+        while (isdigit(optarg[i]))
         {
-          move_to_display[nb_move_to_dsp] = ((int)optarg[i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
+          move_to_display[nb_move_to_dsp] =
+              ((int)optarg[i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
           i++;
         }
         nb_move_to_dsp++;
@@ -1750,19 +1753,26 @@ int parse_options(argc,argv)
         break;
       case 'c':
         i = 0;
-        while(isdigit(optarg[i]))
+        while (isdigit(optarg[i]))
         {
           move_to_display[nb_move_to_dsp] = 0;
-          while(isdigit(optarg[i]))
+          while (isdigit(optarg[i]))
           {
-            move_to_display[nb_move_to_dsp] = ((int)optarg[i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
+            move_to_display[nb_move_to_dsp] =
+                ((int)optarg[i] - (int)'0') + move_to_display[nb_move_to_dsp] * 10;
             i++;
           }
           nb_move_to_dsp++;
-          
-          if(nb_move_to_dsp > NB_MOVE_TO_DISP)
-            fatal((stderr, "max. number of move to display exceeded"));
-          if(optarg[i] == ',')
+
+          if (nb_move_to_dsp > NB_MOVE_TO_DISP)
+          {
+            fprintf(stderr, "max. number of move to display exceeded");
+            close_files();
+            free(dr);
+            exit(1);
+          }
+          /* process next number */
+          if (optarg[i] == ',')
             i++;
         }
         break;
@@ -1789,7 +1799,12 @@ int parse_options(argc,argv)
       case 'h':
         strcpy(chaine, LIB_DIR);
         if((fhelp = fopen(strcat(chaine, HELP_FILE), "r")) == NULL)
-          fatal((stderr, "Can't find help file.\n"));
+        {
+          fprintf(stderr, "Can't find help file.\n");
+          close_files();
+          free(dr);
+          exit(1);
+        }
         else
         {
           while((c = getc(fhelp)) != EOF)
@@ -1805,6 +1820,7 @@ int parse_options(argc,argv)
         close_files();
         free(dr);
         exit(1);
+        break;
       default:
         fprintf(stderr, "Unknown command line options %c\n", optopt);
         close_files();
@@ -1818,15 +1834,14 @@ int parse_options(argc,argv)
   for(int j=optind;j<argc;j++)
   {
     if ((infile = fopen(argv[j], "r")) == NULL)
-      fatal((stderr, "can't open %s input file\n", argv[j]));
+    {
+      fprintf(stderr, "can't open %s input file\n", argv[j]);
+      close_files();
+      free(dr);
+      exit(1);
+    }
     break;
   }
-  
-  // if(argv[1][0] != '-')
-  // {
-  //   if ((infile = fopen(argv[1], "r")) == NULL)
-  //     fatal((stderr, "can't open %s input file\n", cp));
-  // }
   
   return 0;
 }
@@ -1937,9 +1952,6 @@ int notation_main(argc,argv)
      char * argv[];
 #endif
 {
-  // Bugs still need to fix
-  // TODO put input throguh gnu and feed it back it doesn't put the right castling move
-  // TODO Give drvers.c it will give seg fault HOW DO I KNOW?
   (void) fprintf(stderr,"%s\n",version_string);
   
   /* allocation of driver descriptor */
@@ -1965,7 +1977,13 @@ int notation_main(argc,argv)
   output_init(dr);
 
   if (error_flag)
-    fatal((stderr,"\nToo many errors"));
+  {
+    close_files();
+    free(dr);
+    yylex_destroy();
+    fprintf(stderr, "\nToo many errors");
+    exit(1);
+  }
 
   /* allocation of board descriptor */
   tos = new_board();
@@ -1992,13 +2010,12 @@ int notation_main(argc,argv)
     output_board(dr,tos);
 
   if (error_flag) {
-    error((stderr,"\nLast valid position:\n"));
+    fprintf(stderr, "\nLast valid position:\n");
     output_board(dr,tos);
     close_files();
     free_everything();
-    fprintf(stderr, "\nToo many errors");
     exit(1);
-    // fatal((stderr,"\nToo many errors"));
+    fprintf(stderr, "\nToo many errors");
   }
   
   /* terminates output files */
@@ -2008,8 +2025,6 @@ int notation_main(argc,argv)
   close_files();
   
   int exit_status = 0;
-  if(m->prev == NULL || error_flag)
-    exit_status = 1;
   
   free_everything();
   // /* exit properly */
