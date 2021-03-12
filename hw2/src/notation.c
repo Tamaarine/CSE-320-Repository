@@ -1270,6 +1270,13 @@ int execute_move()
 	output_board(dr,tos);
 	if (stop_at_display) {
 	  output_end(dr);
+    for(int i=0;i<dr->variation;i++)
+    {
+      if(stack[i].b != NULL)
+      {
+        free(stack[i].b);
+      }
+    }
 	  close_files();
     free_everything();
 	  exit(0);
@@ -1831,16 +1838,25 @@ int parse_options(argc,argv)
     
   }
   
-  for(int j=optind;j<argc;j++)
+  // We make sure we only take in one file
+  if(optind + 1 == argc)
   {
-    if ((infile = fopen(argv[j], "r")) == NULL)
+    // However if we only get one file we will attempt to open it
+    if ((infile = fopen(argv[optind], "r")) == NULL)
     {
-      fprintf(stderr, "can't open %s input file\n", argv[j]);
+      fprintf(stderr, "can't open %s input file\n", argv[optind]);
       close_files();
       free(dr);
       exit(1);
     }
-    break;
+  }
+  else
+  {
+    // This means that we are given multiple files hence we will give error back
+    fprintf(stderr, "Too many files given\n");
+    close_files();
+    free(dr);
+    exit(1);
   }
   
   return 0;
