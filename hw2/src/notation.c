@@ -1710,7 +1710,8 @@ int parse_options(argc,argv)
     {"driver", required_argument, 0, 'd'},
     {"no-headers", no_argument, 0, 'i'},
     {"help", no_argument, 0, 'h'},
-    {"version", no_argument, 0, 'v'}
+    {"version", no_argument, 0, 'v'},
+    {NULL, 0, NULL, 0}
   };
   
   // Variables that we need
