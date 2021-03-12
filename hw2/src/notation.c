@@ -1724,7 +1724,7 @@ int parse_options(argc,argv)
   
   while(1)
   {
-    c = getopt_long(argc, argv, ":asf:t:o:c:e:bd:ihv", long_options, &option_index);
+    c = getopt_long(argc, argv, "asf:t:o:c:e:bd:ihv", long_options, &option_index);
     
     // The arguments are done parsing we just break out of the loop
     if(c == -1)
@@ -1822,14 +1822,7 @@ int parse_options(argc,argv)
           exit(0);
         }
         break;
-      case ':':
-        fprintf(stderr, "missing argument to %c option\n", optopt);
-        close_files();
-        free(dr);
-        exit(1);
-        break;
       default:
-        fprintf(stderr, "Unknown command line options %c\n", optopt);
         close_files();
         free(dr);
         exit(1);
