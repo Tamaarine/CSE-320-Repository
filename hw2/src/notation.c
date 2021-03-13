@@ -1833,7 +1833,7 @@ int parse_options(argc,argv)
   }
   
   // We make sure we only take in one file
-  if(optind + 1 == argc)
+  if(optind < argc)
   {
     // However if we only get one file we will attempt to open it
     if ((infile = fopen(argv[optind], "r")) == NULL)
