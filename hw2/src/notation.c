@@ -1844,14 +1844,6 @@ int parse_options(argc,argv)
       exit(1);
     }
   }
-  else
-  {
-    // This means that we are given multiple files hence we will give error back
-    fprintf(stderr, "Too many files given\n");
-    close_files();
-    free(dr);
-    exit(1);
-  }
   
   return 0;
 }
