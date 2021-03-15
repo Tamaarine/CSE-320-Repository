@@ -69,3 +69,10 @@ int leaveSplinter(sf_block * suitableListHead, size_t wantedSize)
         return 0;
     }
 }
+
+void setNewEpilogue()
+{
+    // Make the header reference to the new heap and set the header to 1
+    sf_header * newEpilogue = (sf_header *)((char *)sf_mem_end() - 8);
+    *(newEpilogue) = 0 | THIS_BLOCK_ALLOCATED;
+}

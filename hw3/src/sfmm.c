@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "sfmm.h"
 #include "helpingFunction.h"
+#include <errno.h>
 
 void *sf_malloc(size_t size) {
     
@@ -23,8 +24,9 @@ void *sf_malloc(size_t size) {
         prologue->header = 32 | THIS_BLOCK_ALLOCATED; // Minimal of 32 byte and allocation status of 1
         
         // Get us to the epilogue address by subtracting 8 byte
-        sf_header * epilogue = (sf_header *)((char *)sf_mem_end() - 8);
-        *(epilogue) = 0 | THIS_BLOCK_ALLOCATED; // The epilogue have size of 0 and allocation status of 1
+        setNewEpilogue();
+        // sf_header * epilogue = (sf_header *)((char *)sf_mem_end() - 8);
+        // *(epilogue) = 0 | THIS_BLOCK_ALLOCATED; // The epilogue have size of 0 and allocation status of 1
         
         // We also have to initialize the sf_free_list_heads
         for(int i=0;i<NUM_FREE_LISTS;i++)
@@ -108,7 +110,7 @@ void *sf_malloc(size_t size) {
                     // The size we need is less than or equal to this block's length, perfect
                     // we will take this one because it is first-fit policy
                     suitableListHead = nodePtr;
-                    printf("found suitable at list %d with length of %ld\n", i, blockLength);
+                    
                     // And we break
                     break;
                 }
@@ -125,20 +127,121 @@ void *sf_malloc(size_t size) {
             {
                 break;
             }
-            
-            // SKip this case for now to do some unit testing
-            // If we are here after looking through the wilderness this means 
-            // the wilderness block that we have/not have didn't fit hence we need
-            // to expand the memory until we get a big enough block which satisfy the request
-            // if(i == 7 && suitableListHead == NULL)
-            // {
-                
-            // }
         }
         
-        // Do the i == 7 case right here because it will also handle the case
-        // if the last free list have no wilderness at all as well
+        // Now if i becomes 7 and if we are here
+        // then that means either the allocator couldn't find a free block anywhere
+        // or the wilderness is empty or is just too small to satisfy the request
+        // hence we will be performing mem_grow again
+        if(i == 7)
+        {
+            // We will have tocall mem_grow at least once for sure
+            char * extendedHeap = sf_mem_grow();
+            
+            if(extendedHeap == NULL)
+            {
+                // If we couldn't grow our heap then we will set sf_errno to ENOMEM
+                // and we will return NULL
+                sf_errno = ENOMEM;
+                return NULL;
+            }
+            
+            // However if we didn't get an error trying to get more memory then we will try to
+            // merge them together and see if we can satisfy the request
+            
+            // We see if we can get the previosu wilderness
+            sf_block * prevWilderness = sf_free_list_heads[i].body.links.next;
+            
+            // This means that the wilderness is empty to begin with
+            // we will merge the old epilogue with the newly allocated heap
+            if(prevWilderness == &sf_free_list_heads[i])
+            {
+                // This gets us to the previous old epilogue
+                sf_block * mergedWilderness = (sf_block *)((char *)extendedHeap - 8);
+                mergedWilderness->header = PAGE_SZ;
+                
+                sf_footer * mergedFooter = (sf_footer *)((char *)mergedWilderness + mergedWilderness->header - 8);
+                *(mergedFooter) = PAGE_SZ;
+                
+                // Then we have to set the new epilogue at the end of the heap
+                setNewEpilogue();
+                
+                // Then we put it back in the wilderness free_list
+                prevWilderness->body.links.next = mergedWilderness;
+                prevWilderness->body.links.prev = mergedWilderness;
+                mergedWilderness->body.links.next = prevWilderness;
+                mergedWilderness->body.links.prev = prevWilderness;
+            }
+            else
+            {            
+                // This means that the wilderness has a free_block but isn't big enough to satisfy the reques
+                // we will have to merge the old wilderness with the new wilderness and make the new epilogue
+                // All we have to do is to modify the length that is stored
+                size_t wildernessLength = prevWilderness->header >> 4;
+                wildernessLength <<= 4;
+                prevWilderness->header = wildernessLength + PAGE_SZ;
+                
+                // Set the footer of that block
+                sf_footer * mergedFooter = (sf_footer *)((char *)prevWilderness + prevWilderness->header - 8);
+                *(mergedFooter) = prevWilderness->header;
+                
+                // We also have to set the new epilogue
+                setNewEpilogue();
+            }
+            
+            // After finish merging we will have to still do some loops
+            // what if one request wasn't enough to satisfy the request
+            sf_block * wilderness = sf_free_list_heads[7].body.links.next;
+            size_t blockSize = wilderness->header >> 4;
+            blockSize <<= 4;
+            
+            // The wilderness is enough after just one growth we will just return
+            if(adjustedSize <= blockSize)
+            {
+                suitableListHead = wilderness;
+                
+                break;
+            }
+            
+            // However if we are here then that means that one growth wasn't enough we will
+            // have to do a while loop in order to get it enough
+            while(adjustedSize > blockSize)
+            {
+                // Call mem_growth
+                char * newHeapAddress = sf_mem_grow();
+                
+                if(newHeapAddress == NULL)
+                {
+                    // Ultimately can't satisfy the request hence we will return error
+                    sf_errno = ENOMEM;
+                    return NULL;
+                }
+                
+                // Then we will have to merge the wilderness together
+                wilderness->header = wilderness->header + PAGE_SZ;
+                
+                // Set the new footer
+                sf_footer * mergedFooter = (sf_footer *)((char *)wilderness + wilderness->header - 8);
+                *(mergedFooter) = wilderness->header;
+                
+                // Then we redo the epilogue
+                setNewEpilogue();
+                
+                // And update blockSize
+                blockSize = wilderness->header >> 4;
+                blockSize <<= 4;
+            }
+            
+            // Now if we are outside then that means we ultiamtely got a block size that is big enough to
+            // satisfy the user request
+            suitableListHead = wilderness;
+            
+            break; // Then finally break
+        }
     }
+    
+    
+    
     
     // Now if we are here then that means we hopefully have found the
     // free_block from one of the free_lists to allocate our wanted blocks from in suitableListHead
@@ -164,7 +267,9 @@ void *sf_malloc(size_t size) {
     else
     {
         // If it doesn't leave splinter we will split the block
-        int leftOver = suitableListHead->header - adjustedSize;
+        size_t headerLength = suitableListHead->header >> 4;
+        headerLength <<= 4;
+        int leftOver = headerLength- adjustedSize;
         
         // suitableListHead is what we will be returning 
         outputPtr = (char *)suitableListHead + 8;

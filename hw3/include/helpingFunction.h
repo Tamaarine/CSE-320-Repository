@@ -1,7 +1,5 @@
 #include <string.h>
 
-#define LENGTH_MASK 0xfffffff0
-
 /**
  * Given a size find the index which tells us which free_list to start to search from
  */
@@ -23,3 +21,8 @@ size_t computeMemorySize(size_t size);
  * will leave a splinter or not. Return 1 if it will, 0 if it won't
  */
 int leaveSplinter(sf_block * suitableListHead, size_t wantedSize);
+
+/**
+ * This function will set a new epilogue after the heap being extended
+ */
+void setNewEpilogue();
