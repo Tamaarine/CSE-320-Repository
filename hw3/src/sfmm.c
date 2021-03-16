@@ -36,13 +36,13 @@ void *sf_malloc(size_t size) {
         }
         
         sf_block * firstFreeBlock = (sf_block *)((char *)prologue + 32);
-        firstFreeBlock->header = 8144; // Need to change this later for sure, definitely not 8144 byte 100%
+        firstFreeBlock->header = 8144 | PREV_BLOCK_ALLOCATED; 
         firstFreeBlock->body.links.next = NULL;
         firstFreeBlock->body.links.prev = NULL;
         
         // Get to the next block minus 8 to get to the footer
         sf_header * footer = (sf_header *)((char *)firstFreeBlock + 8144 - 8);
-        *(footer) = 8144;
+        *(footer) = firstFreeBlock->header;
         
         // Add the remaining back to wilderness and set the links appropriately
         sf_free_list_heads[7].body.links.next = firstFreeBlock;
@@ -158,10 +158,13 @@ void *sf_malloc(size_t size) {
             {
                 // This gets us to the previous old epilogue
                 sf_block * mergedWilderness = (sf_block *)((char *)extendedHeap - 8);
-                mergedWilderness->header = PAGE_SZ;
+                mergedWilderness->header = PAGE_SZ | PREV_BLOCK_ALLOCATED; // The old wilderness is gone hence it must be allocated
                 
-                sf_footer * mergedFooter = (sf_footer *)((char *)mergedWilderness + mergedWilderness->header - 8);
-                *(mergedFooter) = PAGE_SZ;
+                size_t length = mergedWilderness->header >> 4;
+                length <<= 4;
+                
+                sf_footer * mergedFooter = (sf_footer *)((char *)mergedWilderness + length - 8);
+                *(mergedFooter) = mergedWilderness->header;
                 
                 // Then we have to set the new epilogue at the end of the heap
                 setNewEpilogue();
@@ -179,10 +182,18 @@ void *sf_malloc(size_t size) {
                 // All we have to do is to modify the length that is stored
                 size_t wildernessLength = prevWilderness->header >> 4;
                 wildernessLength <<= 4;
-                prevWilderness->header = wildernessLength + PAGE_SZ;
+                
+                // Get the prev_status of the previous block
+                int prevAllocateStatus = prevWilderness->header & PREV_BLOCK_ALLOCATED;
+                
+                // We create the new header with the combined length and the inheribited previous status
+                prevWilderness->header = (wildernessLength + PAGE_SZ) | prevAllocateStatus;
+                
+                wildernessLength = prevWilderness->header >> 4;
+                wildernessLength <<= 4;
                 
                 // Set the footer of that block
-                sf_footer * mergedFooter = (sf_footer *)((char *)prevWilderness + prevWilderness->header - 8);
+                sf_footer * mergedFooter = (sf_footer *)((char *)prevWilderness + wildernessLength - 8);
                 *(mergedFooter) = prevWilderness->header;
                 
                 // We also have to set the new epilogue
@@ -218,10 +229,21 @@ void *sf_malloc(size_t size) {
                 }
                 
                 // Then we will have to merge the wilderness together
-                wilderness->header = wilderness->header + PAGE_SZ;
+                size_t length = wilderness->header >> 4; // Get the length of wilderness
+                length <<= 4;
+                
+                // Get the prev status of the wilderness that we are merging with
+                int prevAllocateStatus = wilderness->header & PREV_BLOCK_ALLOCATED;
+                
+                // Create the new header with combined size
+                wilderness->header = (length + PAGE_SZ) | prevAllocateStatus;
+                
+                // Get the new length again in order to set the footer
+                length = wilderness->header >> 4;
+                length <<= 4;
                 
                 // Set the new footer
-                sf_footer * mergedFooter = (sf_footer *)((char *)wilderness + wilderness->header - 8);
+                sf_footer * mergedFooter = (sf_footer *)((char *)wilderness + length - 8);
                 *(mergedFooter) = wilderness->header;
                 
                 // Then we redo the epilogue
@@ -239,9 +261,6 @@ void *sf_malloc(size_t size) {
             break; // Then finally break
         }
     }
-    
-    
-    
     
     // Now if we are here then that means we hopefully have found the
     // free_block from one of the free_lists to allocate our wanted blocks from in suitableListHead
@@ -263,28 +282,42 @@ void *sf_malloc(size_t size) {
         
         // We have to set the allocation status to 1 on the header
         suitableListHead->header = suitableListHead->header | THIS_BLOCK_ALLOCATED;
+        // The prev is inherited from the header so we don't have to explicitly do it
+        
+        size_t length = suitableListHead->header >> 4;
+        length <<= 4;
+        
+        // But we have to also tell the next block that this block is allocated
+        sf_block * blockAfter = (sf_block *)((char *)suitableListHead + length);
+        blockAfter->header = blockAfter->header | PREV_BLOCK_ALLOCATED; // Have to set the previous block to be allocated
     }
     else
     {
         // If it doesn't leave splinter we will split the block
         size_t headerLength = suitableListHead->header >> 4;
         headerLength <<= 4;
-        int leftOver = headerLength- adjustedSize;
+        size_t leftOver = headerLength - adjustedSize;
         
-        // suitableListHead is what we will be returning 
+        // This tells us the prev_allocation status of the previous block
+        // which we will have to give to outputPtr
+        int inheritPrevAllocate = suitableListHead->header & PREV_BLOCK_ALLOCATED;
+        
+        // outputPtr is what we will be returning 
         outputPtr = (char *)suitableListHead + 8;
         //Set the size of the header and allocation status as well
         suitableListHead->header = adjustedSize | THIS_BLOCK_ALLOCATED;
+        suitableListHead->header = suitableListHead->header | inheritPrevAllocate;
+        
         
         // To calculate where free_block of the splitted block are
         // we just need to add adjustedSize to suitableListHead
         sf_block * remainingBlock = (sf_block *)((char *)suitableListHead + adjustedSize);
         // Set the size of the remainingBlock
-        remainingBlock->header = leftOver;
+        remainingBlock->header = leftOver | PREV_BLOCK_ALLOCATED;
         
         // We also have to adjust the footer of the remainingBlock as well
         sf_footer * remainingBlockFooter = (sf_footer *)((char *)remainingBlock + leftOver - 8);
-        *(remainingBlockFooter) = leftOver;
+        *(remainingBlockFooter) = remainingBlock->header;
         
         // remainingBlock is what we will be adding back to the list 
         sf_block * prevBlock = suitableListHead->body.links.prev;
