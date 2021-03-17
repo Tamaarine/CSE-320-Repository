@@ -76,3 +76,28 @@ void setNewEpilogue()
     sf_header * newEpilogue = (sf_header *)((char *)sf_mem_end() - 8);
     *(newEpilogue) = 0 | THIS_BLOCK_ALLOCATED;
 }
+
+int multipleOf16(size_t num)
+{
+    if(num % 16 == 0)
+        return 1;
+    else
+        return 0;
+}
+
+size_t getSizeFromHeader(sf_header header)
+{
+    // Shifts the header to the right 4 and left 4 to clear out the bits information
+    size_t length = header >> 4;
+    length <<= 4;
+    
+    return length;
+}
+
+size_t getSizeFromFooter(sf_footer footer)
+{
+    size_t length = footer >> 4;
+    length <<= 4;
+    
+    return length;
+}

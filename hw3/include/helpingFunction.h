@@ -26,3 +26,16 @@ int leaveSplinter(sf_block * suitableListHead, size_t wantedSize);
  * This function will set a new epilogue after the heap being extended
  */
 void setNewEpilogue();
+
+/**
+ * Given s size_t variable that can represent the pointer address or
+ * the size of the data type. Return 1 if it is multiple of 16. Return 0 otherwise
+ */
+int multipleOf16(size_t num);
+
+/**
+ * Returns the size from the header after shifting 4 bits right and 4 bits back
+ */
+size_t getSizeFromHeader(sf_header header);
+
+size_t getSizeFromFooter(sf_footer footer);
