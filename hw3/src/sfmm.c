@@ -336,6 +336,20 @@ void *sf_malloc(size_t size) {
 
 void sf_free(void *ptr)
 {
+    // Alright free() next, let's do this
+    // We begin checking if the pointer is NULL
+    if(ptr == NULL)
+    {
+        abort();
+    }
+    
+    // Next we check whether or not the pointer is 16 byte aligned
+    // if it is not then we abort
+    if(!multipleOf16((size_t)ptr))
+    {
+        abort();
+    }
+    
     // We can get the blockPtr by going back 8 bytes from the ptr
     sf_block * blockPtr = (sf_block *)((char *)ptr - 8);
     
@@ -364,19 +378,6 @@ void sf_free(void *ptr)
     
     int nextBlockAllocatedBit = nextBlockPtr->header & THIS_BLOCK_ALLOCATED;
     
-    // Alright free() next, let's do this
-    // We begin checking if the pointer is NULL
-    if(ptr == NULL)
-    {
-        abort();
-    }
-    
-    // Next we check whether or not the pointer is 16 byte aligned
-    // if it is not then we abort
-    if(!multipleOf16((size_t)ptr))
-    {
-        abort();
-    }
     
     // Then we check if the size of the block is a multiple of 16
     // if it is not then we abort
@@ -414,11 +415,26 @@ void sf_free(void *ptr)
         abort();
     }
         
-    // TODO There is one more case to check but I'm just not sure about it yet so we will leave it here
-    
-    
-    
-    
+    // If the previousAllocateBit is equal to 0 then we must check
+    // whether or not that allocation bit in the previous block matches as well, if it doesn't
+    // match then we will call abort
+    if(prevAllocateBit == 0)
+    {
+        sf_footer * previousFooter = (sf_footer *)((char *)blockPtr - 8);
+        
+        size_t previousLength = getSizeFromFooter(*previousFooter);
+        
+        sf_block * previousBlock = (sf_block *)((char *)blockPtr - previousLength);
+        
+        int allocateBit = previousBlock->header & THIS_BLOCK_ALLOCATED;
+        int allocateBitFromFooter = previousBlock->header & THIS_BLOCK_ALLOCATED;
+        
+        // The previous block's allocate bit is not 0 then we will abort
+        if(allocateBit != 0 || allocateBitFromFooter != 0)
+        {
+            abort();
+        }
+    }    
     
     
     // If we are here the nthat means everything is good to go we can start
@@ -695,272 +711,190 @@ void sf_free(void *ptr)
             }
         }
     }
-    
-
-    // // This means that the block we are freeing is the wilderness
-    // // We will only be coalescing with the previous block
-    // if(nextBlockLength == 0)
-    // {
-    //     // We only coalesce if prevAllocateBit is 0    
-    //     if(prevAllocateBit)
-    //     {
-    //         // This means that the previous block is allocated hence we don't coalesce
-    //         // just set the allocated bit to 0 and add it to list[7]. But also inheriting the pal
-    //         size_t newHeader = blockLength | prevAllocateBit;
-    //         blockPtr->header = newHeader;
-            
-    //         // We also need to set the footer
-    //         sf_footer * newFooter = (sf_footer *)((char *)blockPtr + blockLength - 8);
-    //         *(newFooter) = newHeader;
-            
-    //         // Add in the new links
-    //         // Cannot get the struct directly need the address since the values are copied
-    //         sf_block * dummyNode = &sf_free_list_heads[7];
-    //         sf_block * theSecondBlock = dummyNode->body.links.next;
-
-    //         dummyNode->body.links.next = blockPtr;            
-    //         theSecondBlock->body.links.prev = blockPtr;
-            
-    //         blockPtr->body.links.next = theSecondBlock;
-    //         blockPtr->body.links.prev = dummyNode;
-            
-    //         // For consistency sake, we will reset the epilogue's pal to 0 as well by calling setNewEpilogue
-    //         setNewEpilogue();
-    //     }        
-    //     else
-    //     {
-    //         // This means that the previous block is not allocated hence we have to coalesce
-    //         // We have to get the footer of the previous block first which can be done
-    //         // by going back another 8 bytes from blockPtr
-    //         sf_footer * prevFooter = (sf_footer *)((char *)blockPtr - 8);
-            
-    //         // Get the footer length
-    //         size_t footerLength = getSizeFromFooter(*prevFooter);
-            
-    //         // Then we can just subtract footerLength from blockPtr to get to the previous block
-    //         sf_block * prevBlock = (sf_block *)((char *)blockPtr - footerLength);
-            
-            
-    //         // We get the prev_allocate of the prevBlock because that is going to be what we are inheriting in our merged block
-    //         int prevPrev_allocate = prevBlock->header & PREV_BLOCK_ALLOCATED;
-            
-    //         // Add together the combined length and inherit the prevPrev_allocate status
-    //         size_t mergedLength = blockLength + footerLength;
-            
-    //         // Set the header now we also have to set the footer
-    //         prevBlock->header = mergedLength | prevPrev_allocate;
-            
-            
-            
-    //         sf_footer * mergedFooter = (sf_footer *)((char *)prevBlock + mergedLength - 8);
-    //         *(mergedFooter) = prevBlock->header;
-            
-            
-            
-    //         // Finally we have to add it back into the wilderness
-    //         sf_block * dummyNode = &sf_free_list_heads[7];
-    //         sf_block * theSecondBlock = dummyNode->body.links.next;
-
-    //         dummyNode->body.links.next = prevBlock;            
-    //         theSecondBlock->body.links.prev = prevBlock;
-            
-    //         prevBlock->body.links.next = theSecondBlock;
-    //         prevBlock->body.links.prev = dummyNode;
-            
-    //         // Again for consistency sake we will set new epilogue because the wilderness is freed
-    //         setNewEpilogue();
-    //     }
-    // }      
-    // else
-    // {
-    //     // This means that the block we are freeing is not the wilderness
-    //     // We will be breaking up into 4 different cases
-    //     // Make sure we don't merge with the prologue and the epilogue
-    //     int nextAllocatedBit = *(nextBlock) & THIS_BLOCK_ALLOCATED;
-        
-    //     // prev and next are both allocated so no coalescing
-    //     if(prevAllocateBit && nextAllocatedBit)
-    //     {
-    //         // Find where are we inserting it
-    //         int insertIndex = computeMemoryIndex(blockLength);
-            
-    //         // Make the new header with inherited prev_allocate
-    //         size_t newHeader = blockLength | prevAllocateBit;
-            
-    //         // Set it as the new header
-    //         blockPtr->header = newHeader;
-            
-    //         // We also have to set the footer as well
-    //         sf_footer * blockFooter = (sf_footer *)((char *)blockPtr + blockLength - 8);
-    //         *(blockFooter) = blockPtr->header;
-            
-            
-            
-    //         // Then we finally insert it in the approriate list
-    //         sf_block * dummyNode = &sf_free_list_heads[insertIndex];
-    //         sf_block * secondBlock = dummyNode->body.links.next;
-            
-    //         dummyNode->body.links.next = blockPtr;
-    //         secondBlock->body.links.prev = blockPtr;
-            
-    //         blockPtr->body.links.next = secondBlock;
-    //         blockPtr->body.links.prev = dummyNode;
-            
-    //         // Then we have to set next block's pal to be 0 and it to be allocated because next block is allocate
-    //         *(nextBlock) = nextBlockLength | THIS_BLOCK_ALLOCATED;
-    //     }
-    //     // prev is allocated but next block is not allocated, so only coalesce with next block
-    //     else if(prevAllocateBit && !nextAllocatedBit)
-    //     {
-    //         sf_block * nextBlockPtr = blockPtr + blockLength;
-            
-    //         size_t mergedLength = blockLength + nextBlockLength;
-            
-    //         // Set the new header. Inherit the prev allocated status
-    //         blockPtr->header = mergedLength | prevAllocateBit;
-            
-    //         // Now we need to also set the footer as well
-    //         sf_footer * mergedFooter = (sf_footer *)((char *)blockPtr + mergedLength - 8);
-    //         *(mergedFooter) = blockPtr->header;
-            
-    //         // Determine the index of where to insert this list
-    //         int insertIndex = computeMemoryIndex(mergedLength);
-            
-    //         // We first remove the nextBlockPtr from its list first
-    //         sf_block * prevNode4Next = nextBlockPtr->body.links.prev;
-    //         sf_block * nextNode4Next = nextBlockPtr->body.links.next;
-            
-    //         // We have to cut it out
-    //         prevNode4Next->body.links.next = nextNode4Next;
-    //         nextNode4Next->body.links.prev = prevNode4Next;
-            
-    //         // Then we can insert the merged block into the corresponding list
-    //         sf_block * dummyNode = &sf_free_list_heads[insertIndex];
-    //         sf_block * secondBlock = dummyNode->body.links.next;
-            
-    //         dummyNode->body.links.next = blockPtr;
-    //         secondBlock->body.links.prev = blockPtr;
-            
-    //         blockPtr->body.links.prev = dummyNode;
-    //         blockPtr->body.links.next = secondBlock;
-            
-    //         // Now we have to set next next block's pal to be 0
-    //         sf_header * nextNextHeader = (sf_header *)((char *)nextBlockPtr + nextBlockLength);
-    //         size_t nextNextLength = getSizeFromHeader(*nextNextHeader);
-    //         int nextNextAllocate = *(nextNextHeader) & THIS_BLOCK_ALLOCATED;
-            
-    //         *(nextNextHeader) = nextNextLength | nextNextAllocate; 
-    //     }
-    //     // prev is not allocated but next block is allocated, so only coalesce with previous block
-    //     else if(!prevAllocateBit && nextAllocatedBit)
-    //     {
-    //         // Get the previous free block's footer by going back 8 bytes
-    //         sf_footer * prevFooter = (sf_footer *)((char *)blockPtr - 8);
-            
-    //         // Then we get the length of the previous block
-    //         size_t previousLength = getSizeFromFooter(*prevFooter);
-            
-    //         // Get the previous block
-    //         sf_block * prevBlock = (sf_block *)((char *)blockPtr - previousLength);
-            
-            
-            
-    //         // This is the prevPrev_allocate status that we are inheriting
-    //         int prevPrev_allocate = prevBlock->header & PREV_BLOCK_ALLOCATED;
-            
-            
-            
-    //         size_t mergedLength = blockLength + previousLength;
-            
-    //         // Update the new header
-    //         prevBlock->header = mergedLength | prevPrev_allocate;
-            
-    //         // Then we also have to update the footer as well
-    //         sf_footer * mergedFooter = (sf_footer *)((char *)prevBlock + mergedLength - 8);
-    //         *(mergedFooter) = prevBlock->header;
-            
-            
-            
-    //         // We have to cut prevBlock's reference out from the free_list
-    //         sf_block * prevNode4Prev = prevBlock->body.links.prev;
-    //         sf_block * nextNode4Prev = prevBlock->body.links.next;
-            
-    //         prevNode4Prev->body.links.next = nextNode4Prev;
-    //         nextNode4Prev->body.links.prev = prevNode4Prev;
-            
-    //         // Determine which index we are inserting it in
-    //         int insertIndex = computeMemoryIndex(mergedLength);
-            
-    //         // Then we finally insert the merged node into the corresponding free_list
-    //         sf_block * dummyNode = &sf_free_list_heads[insertIndex];
-    //         sf_block * secondBlock = dummyNode->body.links.next;
-            
-    //         dummyNode->body.links.next = prevBlock;
-    //         secondBlock->body.links.prev = prevBlock;      
-            
-    //         // We have to set nextBlock's pal to be 0
-    //         *(nextBlock) = nextBlockLength | THIS_BLOCK_ALLOCATED;
-    //     }
-    //     // Both are not allocated so coalesce with both
-    //     else
-    //     {
-    //         sf_footer * prevFooter = (sf_footer *)((char *)blockPtr - 8);
-            
-    //         size_t previousLength = getSizeFromFooter(*prevFooter);
-            
-    //         // We get the previous block and the next block
-    //         sf_block * previousBlockPtr = (sf_block *)((char *)blockPtr - previousLength);
-    //         sf_block * nextBlockPtr = (sf_block *)((char *)blockPtr + nextBlockLength);
-            
-    //         // We will be ultimately inheriting the prev_allocate status from previousBlockPtr
-    //         int prevPrev_allocate = previousBlockPtr->header & PREV_BLOCK_ALLOCATED;
-            
-    //         // Calculte the merged length
-    //         size_t mergedLength = blockLength + previousLength + nextBlockLength;
-            
-    //         // Update the new header
-    //         previousBlockPtr->header = mergedLength | prevPrev_allocate;
-            
-    //         // We also need to update the new footer as well
-    //         sf_footer * mergedFooter = (sf_footer *)((char *)previousBlockPtr + mergedLength - 8);
-    //         *(mergedFooter) = previousBlockPtr->header;
-            
-    //         // Then finally we take previousBlockPtr and nextBlockPtr both out of the free_list
-    //         sf_block * prevNode4Prev = previousBlockPtr->body.links.prev;
-    //         sf_block * nextNode4Prev = previousBlockPtr->body.links.next;
-            
-    //         sf_block * prevNode4Next = nextBlockPtr->body.links.prev;
-    //         sf_block * nextNode4Next = nextBlockPtr->body.links.next;
-            
-    //         prevNode4Prev->body.links.next = nextNode4Prev;
-    //         nextNode4Prev->body.links.prev = prevNode4Prev;
-            
-    //         prevNode4Next->body.links.next = nextNode4Next;
-    //         nextNode4Next->body.links.prev = prevNode4Next;
-            
-    //         int insertIndex = computeMemoryIndex(mergedLength);
-            
-    //         // Finally we will insert the merged block back into the corresponding free_list
-    //         sf_block * dummyNode = &sf_free_list_heads[insertIndex];
-    //         sf_block * secondBlock = dummyNode->body.links.next;
-            
-    //         dummyNode->body.links.next = previousBlockPtr;
-    //         secondBlock->body.links.prev = previousBlockPtr;  
-            
-    //         // We have to set nextNext block's pal to be 0
-    //         sf_header * nextNextHeader = (sf_header *)((char *)nextBlockPtr + nextBlockLength);
-    //         size_t nextNextLength = getSizeFromHeader(*nextNextHeader);
-    //         int nextNextAllocate = *(nextNextHeader) & THIS_BLOCK_ALLOCATED;
-            
-    //         *(nextNextHeader) = nextNextLength | nextNextAllocate; 
-    //     }
-    // }  
     return;
 }
 
 void *sf_realloc(void *ptr, size_t size)
 {
-    return NULL;
+    // Alright realloc next let's do this
+    // First we must verify the pointer that is passed is a valid pointer to free
+    // which just follows the same critera in sf_free
+    if(ptr == NULL)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    if(!multipleOf16((size_t)ptr))
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    sf_block * blockPtr = (sf_block *)((char *)ptr - 8);
+    
+    size_t blockLength = getSizeFromHeader(blockPtr->header);
+    
+    int allocatedByte = blockPtr->header & THIS_BLOCK_ALLOCATED;
+    int prevAllocateBit = blockPtr->header & PREV_BLOCK_ALLOCATED;
+    
+    char * blockPtrEnd = (char *)blockPtr + blockLength;
+    
+    
+    // Get the valid memory regions
+    char * memStart = (char *)sf_mem_start() + 40;
+    char * memEnd = (char *)sf_mem_end() - 8;
+    
+    
+    // We can get information about the nextBlock since we are guaranteed to find it
+    sf_block * nextBlockPtr = (sf_block *)((char *)blockPtr + blockLength);
+    
+    // The block is not multiple of 16
+    if(!multipleOf16(blockLength))
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // The block is not at least 32
+    if(blockLength < 32)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // This block is currently not allocated then why free?
+    if(allocatedByte == 0)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // blockPtr is not in valid heap range
+    if((size_t)blockPtr < (size_t)memStart || (size_t)blockPtr >= (size_t)memEnd)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    // blockPtrEnd is not in valid heap range
+    else if((size_t)blockPtrEnd < (size_t)memStart || (size_t)blockPtrEnd > (size_t)memEnd)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // If nextBlock's address is out of the current heap bound then we will abort. It's fine it is epilogue
+    if((size_t)nextBlockPtr < (size_t)memStart || (size_t)nextBlockPtr > (size_t)memEnd)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // Then we have to check the header of the previous block if it is free
+    // matches the pal of this block we are freeing. We will only check if prevAllocateBit == 0
+    if(prevAllocateBit == 0)
+    {
+        sf_footer * previousFooter = (sf_footer *)((char *)blockPtr - 8);
+        
+        size_t previousLength = getSizeFromFooter(*previousFooter);
+        
+        sf_block * previousBlock = (sf_block *)((char *)blockPtr - previousLength);
+        
+        int allocateBit = previousBlock->header & THIS_BLOCK_ALLOCATED;
+        int allocateBitFromFooter = previousBlock->header & THIS_BLOCK_ALLOCATED;
+        
+        // The previous block's allocate bit is not 0 then we will abort
+        // because it doesn't match with the pal of this block
+        if(allocateBit != 0 || allocateBitFromFooter != 0)
+        {
+            sf_errno = EINVAL;
+            return NULL;
+        }
+    }
+    
+    // Finally we can begin with our algorithm because everything is good
+    // this pointer is valid
+    
+    // If the size is 0 but the pointer is valid, we free the memory and return NULL
+    if(size == 0)
+    {
+        sf_free(ptr);
+        return NULL;
+    }
+    
+    size_t adjustedSize = 0;
+    
+    // If the user want to resize the payload to anything between 0 to 24 btyes
+    // we have to automatically round up to 32 to account for the header and the footer/prev/next
+    if(size <= 24)
+    {
+        adjustedSize = 32;
+    }
+    else
+    {
+        // Else then we will compute how much the size actually is
+        adjustedSize = computeMemorySize(size + 8);
+    }
+    
+    // If the adjusted size is greater than or equal to blockLength
+    // we will just allocate a new block of size adjustedSize
+    if(adjustedSize >= blockLength)
+    {
+        // First we call sf_malloc to get a new block, we don't pass it adjustedSize
+        // just pass in the size. It will figure out the adjustedSize itself
+        char * returnedPtr = (char *)sf_malloc(size);
+        
+        // We must check if sf_malloc returns NULL or not
+        if(returnedPtr == NULL)
+        {
+            // No need to set sf_errno because sf_malloc sets it
+            return NULL;
+        }   
+        
+        // Next we will have to memcpy the data from the given block to the bigger block
+        memcpy(returnedPtr, ptr, blockLength - 8); // Only need to copy blockLength - 8 bytes
+        
+        // Then we will call sf_free on the original block
+        sf_free(ptr);
+        
+        // Finally return the allocated block to the client
+        return returnedPtr;
+    }
+    else
+    {
+        // If we are here then that means we are going from bigger block to a smaller block
+        // 64 to 48 or 64 to 32, and there are two cases we must consider
+        // One case where we will get splinters, the other case where we dont' get splinters
+        // First we get the size differences after splitting
+        size_t diff = blockLength - adjustedSize;
+        
+        // Meaning that it will be a splinter 
+        if(diff < 32)
+        {
+            // We just return the same block back to the user without any freeing
+            return ptr;
+        }
+        // No splinter hence we split
+        else
+        {
+            // Adding adjustedSize get us to the splitted block which we will have to free
+            sf_block * nextBlockPtr = (sf_block *)((char *)blockPtr + adjustedSize);
+            
+            // We have to update the blockPtr's header because it is splitted
+            blockPtr->header = adjustedSize | THIS_BLOCK_ALLOCATED;
+            blockPtr->header = blockPtr->header | prevAllocateBit; // Also have to inherit the prev allocate bit so we don't lose it
+            
+            // Now we also have to update the nextBlockPtr's status to be passed into sf_free
+            nextBlockPtr->header = diff | THIS_BLOCK_ALLOCATED;
+            nextBlockPtr->header = nextBlockPtr->header | PREV_BLOCK_ALLOCATED; // pal is equal to 1
+            
+            // Now we can call sf_free on nextBlockPtr
+            sf_free((char *)nextBlockPtr + 8);
+            
+            // Then finally we can return it to the client
+            return ptr;
+        }
+    }
 }
 
 void *sf_memalign(size_t size, size_t align) 
