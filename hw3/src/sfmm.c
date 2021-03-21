@@ -83,6 +83,8 @@ void *sf_malloc(size_t size) {
     // Will be used for finding the suitable free_list head
     sf_block * suitableListHead = NULL;
     
+    int cameFromWildereness = 0;
+    
     // We start searching through the free list for an nonempty list
     for(int i=startSearchIndex;i<NUM_FREE_LISTS;i++)
     {
@@ -110,6 +112,9 @@ void *sf_malloc(size_t size) {
                     // The size we need is less than or equal to this block's length, perfect
                     // we will take this one because it is first-fit policy
                     suitableListHead = nodePtr;
+                    
+                    if(i == 7)
+                        cameFromWildereness = 1;
                     
                     // And we break
                     break;
@@ -211,6 +216,8 @@ void *sf_malloc(size_t size) {
             {
                 suitableListHead = wilderness;
                 
+                cameFromWildereness = 1;
+                
                 break;
             }
             
@@ -257,6 +264,8 @@ void *sf_malloc(size_t size) {
             // Now if we are outside then that means we ultiamtely got a block size that is big enough to
             // satisfy the user request
             suitableListHead = wilderness;
+            
+            cameFromWildereness = 1;
             
             break; // Then finally break
         }
@@ -319,15 +328,43 @@ void *sf_malloc(size_t size) {
         sf_footer * remainingBlockFooter = (sf_footer *)((char *)remainingBlock + leftOver - 8);
         *(remainingBlockFooter) = remainingBlock->header;
         
-        // remainingBlock is what we will be adding back to the list 
-        sf_block * prevBlock = suitableListHead->body.links.prev;
-        sf_block * nextBlock = suitableListHead->body.links.next;
-        prevBlock->body.links.next = remainingBlock;
-        nextBlock->body.links.prev = remainingBlock;
         
-        // Then we also have to set the links for the remainingBlock
-        remainingBlock->body.links.prev = prevBlock;
-        remainingBlock->body.links.next = nextBlock;
+        // Now we have to determinw where should the remainingBlock be added back to the list
+        // if cameFromWilderness is true then we will add it back to the wilderness. If not
+        // we will determine the correct place to add it to
+        if(cameFromWildereness)
+        {
+            // remainingBlock is what we will be adding back to the list 
+            sf_block * prevBlock = suitableListHead->body.links.prev;
+            sf_block * nextBlock = suitableListHead->body.links.next;
+            prevBlock->body.links.next = remainingBlock;
+            nextBlock->body.links.prev = remainingBlock;
+            
+            // Then we also have to set the links for the remainingBlock
+            // it goes in the same list because it is the wilderness
+            remainingBlock->body.links.prev = prevBlock;
+            remainingBlock->body.links.next = nextBlock;
+        }
+        else
+        {
+            // Cut the family ties
+            sf_block * prevBlock = suitableListHead->body.links.prev;
+            sf_block * nextBlock = suitableListHead->body.links.next;
+            prevBlock->body.links.next = nextBlock;
+            nextBlock->body.links.prev = prevBlock;
+            
+            // We have to first calculate the index we have to insert the list into
+            int insertIndex = computeMemoryIndex(leftOver);
+            
+            sf_block * dummyNode = &sf_free_list_heads[insertIndex];
+            sf_block * secondBlock = dummyNode->body.links.next;
+            
+            dummyNode->body.links.next = remainingBlock;
+            secondBlock->body.links.prev = remainingBlock;
+            
+            remainingBlock->body.links.prev = dummyNode;
+            remainingBlock->body.links.next = secondBlock;
+        }
     }
     
     // Then we finally can return the pointer    
@@ -489,6 +526,14 @@ void sf_free(void *ptr)
             // Set the header of previous block to be updated as well as the footer
             previousBlockPtr->header = newHeader;
             *(blockPtrFooter) = newHeader;
+            
+            // We also have to take previous of out the original list it belongs in first
+            sf_block * prevNodeForPrevious = previousBlockPtr->body.links.prev;
+            sf_block * nextNodeForPrevious = previousBlockPtr->body.links.next;
+            
+            // Cut the ties
+            prevNodeForPrevious->body.links.next = nextNodeForPrevious;
+            nextNodeForPrevious->body.links.prev = prevNodeForPrevious;
             
             // Before we add it into free_list, we must remove the old wilderness
             sf_block * dummyNode = &sf_free_list_heads[7];

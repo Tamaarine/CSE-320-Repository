@@ -181,22 +181,22 @@ Test(sfmm_basecode_suite, realloc_smaller_block_free_block, .timeout = TEST_TIME
 //DO NOT DELETE THESE COMMENTS
 //############################################
 
-// Test(sfmm_basecode_suite, ranout_of_memory, .timeout = TEST_TIMEOUT)
-// {
-// 	int * ptrs[16];
+Test(sfmm_basecode_suite, ranout_of_memory, .timeout = TEST_TIMEOUT)
+{
+	int * ptrs[16];
 	
-// 	for(int i=0;i<16;i++)
-// 	{
-// 		ptrs[i] = sf_malloc(9000);
-// 	}
+	for(int i=0;i<16;i++)
+	{
+		ptrs[i] = sf_malloc(9000);
+	}
 	
-// 	for(int i=0;i<16;i++)
-// 	{
-// 		*(ptrs[i]) = 5;
-// 	}
-	
-// 	cr_assert(sf_errno == ENOMEM, "ENOMEM is not set due to memory ran out");
-// }
+	for(int i=0;i<16;i++)
+	{
+		*(ptrs[i]) = 5;
+	}
+	printf("%p\n", ptrs[15]);
+	cr_assert(ptrs[15] == NULL, "ENOMEM is not set due to memory ran out");
+}
 
 Test(sfmm_basecode_suite, sf_memalign_test, .timeout = TEST_TIMEOUT)
 {
