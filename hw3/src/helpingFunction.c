@@ -1,6 +1,7 @@
 #include <string.h>
 #include "sfmm.h"
 #include "helpingFunction.h"
+#include <stdio.h>
 
 int computeMemoryIndex(size_t size)
 {
@@ -100,4 +101,28 @@ size_t getSizeFromFooter(sf_footer footer)
     length <<= 4;
     
     return length;
+}
+
+int powerOf2(size_t size)
+{
+    int counter = 0;
+    int workingSize = size;
+    
+    while(workingSize > 1)
+    {
+        workingSize /= 2;
+        counter ++;
+    }
+    
+    size_t checking = 1;
+    
+    for(int i=0;i<counter;i++)
+    {
+        checking = checking * 2;
+    }
+    
+    if(checking == size)
+        return 1;
+    else
+        return 0;
 }

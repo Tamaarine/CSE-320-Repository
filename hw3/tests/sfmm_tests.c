@@ -180,3 +180,72 @@ Test(sfmm_basecode_suite, realloc_smaller_block_free_block, .timeout = TEST_TIME
 //STUDENT UNIT TESTS SHOULD BE WRITTEN BELOW
 //DO NOT DELETE THESE COMMENTS
 //############################################
+
+// Test(sfmm_basecode_suite, ranout_of_memory, .timeout = TEST_TIMEOUT)
+// {
+// 	int * ptrs[16];
+	
+// 	for(int i=0;i<16;i++)
+// 	{
+// 		ptrs[i] = sf_malloc(9000);
+// 	}
+	
+// 	for(int i=0;i<16;i++)
+// 	{
+// 		*(ptrs[i]) = 5;
+// 	}
+	
+// 	cr_assert(sf_errno == ENOMEM, "ENOMEM is not set due to memory ran out");
+// }
+
+Test(sfmm_basecode_suite, sf_memalign_test, .timeout = TEST_TIMEOUT)
+{
+	char * ptr1 = sf_memalign(50, 64);
+    *(ptr1) = '3';
+    
+    char * ptr2 = sf_memalign(900, 128);
+    *(ptr2) = '3';
+    
+    char * ptr3= sf_memalign(12800, 128);
+    *(ptr3) = '5';
+    
+    char * ptr4= sf_memalign(120, 128);
+    *(ptr4) = '5';
+    
+    char * ptr5= sf_memalign(360, 2048);
+    *(ptr5) = '5';
+    
+	cr_assert((size_t)ptr1 % 64 == 0, "ptr1 is not aligned with the requested alignment");
+	cr_assert((size_t)ptr2 % 128 == 0, "ptr2 is not aligned with the requested alignment");
+	cr_assert((size_t)ptr3 % 128 == 0, "ptr3 is not aligned with the requested alignment");
+	cr_assert((size_t)ptr4 % 128 == 0, "ptr4 is not aligned with the requested alignment");
+	cr_assert((size_t)ptr5 % 2048 == 0, "ptr5 is not aligned with the requested alignment");
+	
+	sf_free(ptr1);
+	sf_free(ptr2);
+	sf_free(ptr3);
+	sf_free(ptr4);
+	sf_free(ptr5);
+	
+	assert_free_block_count(0, 1);
+}
+
+Test(sfmm_basecode_suite, sf_realloc_merge_withwilderness, .timeout = TEST_TIMEOUT)
+{
+	char * ptr1 = sf_malloc(200);
+    *(ptr1) = 'A';
+    
+    char * ptr2 = sf_malloc(600 * sizeof(double));
+    *(ptr2) = 'A';
+    
+    char * ptr3 = sf_malloc(666);
+    *(ptr3) = 'A';
+    
+    char * ptr4 = sf_malloc(999);
+    *(ptr4) = 'A';
+    
+    ptr4 = sf_realloc(ptr4, 123);
+	
+	assert_free_block_count(2288, 1);
+	
+}

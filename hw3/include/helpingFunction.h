@@ -38,4 +38,15 @@ int multipleOf16(size_t num);
  */
 size_t getSizeFromHeader(sf_header header);
 
+/**
+ * Returns the size from the footer after shifting 4 bits right and 4 bits back
+ */
 size_t getSizeFromFooter(sf_footer footer);
+
+/**
+ * Returns 1 if the given parameter size is a power of 2
+ * Return 0 if the given parameter size is not a power of 2 
+ */
+int powerOf2(size_t size);
+
+

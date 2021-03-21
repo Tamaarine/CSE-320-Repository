@@ -836,9 +836,9 @@ void *sf_realloc(void *ptr, size_t size)
         adjustedSize = computeMemorySize(size + 8);
     }
     
-    // If the adjusted size is greater than or equal to blockLength
+    // If the adjusted size is greater than blockLength
     // we will just allocate a new block of size adjustedSize
-    if(adjustedSize >= blockLength)
+    if(adjustedSize > blockLength)
     {
         // First we call sf_malloc to get a new block, we don't pass it adjustedSize
         // just pass in the size. It will figure out the adjustedSize itself
@@ -899,5 +899,115 @@ void *sf_realloc(void *ptr, size_t size)
 
 void *sf_memalign(size_t size, size_t align) 
 {
-    return NULL;
+    // If the requested size is 0 just return NULL
+    if(size == 0)
+    {
+        return NULL;
+    }
+    else if(size < 32)
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // If the align is not a power of 2 then we also return NULL and set sf_errno
+    if(!powerOf2(align))
+    {
+        sf_errno = EINVAL;
+        return NULL;
+    }
+    
+    // If we are here the nthat means size and align are valid arguments hence we will do our algorithm
+    // We should allocate a block that is at least size + alignment_size + 32 + 8
+    // the 8 byte will be handled in sf_malloc so we don't add it
+    size_t adjustedSize = size + align + 32;
+    
+    // Let's malloc that adjustedSize block
+    char * returnedPtr = sf_malloc(adjustedSize);
+    
+    if(returnedPtr == NULL)
+    {
+        sf_errno = ENOMEM;
+        return NULL;
+    }
+    
+    // But if we are outside then we can check if it is a multiple of align
+    if((size_t)returnedPtr % align == 0)
+    {
+        return returnedPtr;
+    }
+    
+    // However if it is not aligned then we have to find that larger address
+    // that is aligned. Just a simple for loop using another pointer to do the incrementation
+    char * movingPtr = returnedPtr;
+    
+    sf_block * blockPtr = (sf_block *)(returnedPtr - 8);
+    size_t blockLength = getSizeFromHeader(blockPtr->header);
+    
+    for(int i=0;i<blockLength;i++)
+    {
+        movingPtr = movingPtr + 1;
+        
+        // If we finally reached the aligned address we will break from this loop
+        if((size_t)movingPtr % align == 0)
+        {
+            break;
+        }   
+    }
+    
+    // If we are out here then movingPtr points to the address that we actually want to be returning
+    // We must free the init part of the block we cut off because we don't need it.
+    // To figure out the size of that block we just have to subtract movingPtr - returnedPtr
+    size_t initLength = (movingPtr - 8) - (char *)blockPtr; // Need to go back 8 bytes, because it only goes up to the header
+    
+    // Now we have to update the header we have this length so when we call sf_free it will free the correct amount
+    int originalPalStatus = blockPtr->header & PREV_BLOCK_ALLOCATED;
+    
+    blockPtr->header = initLength | originalPalStatus;
+    blockPtr->header = blockPtr->header | THIS_BLOCK_ALLOCATED;
+    
+    // Get the total length of the actual block we have
+    size_t movingPtrLength = blockLength - initLength;
+    
+    // Now before we free we have to check whether the movingPtr is too much in length and see if we are able to split at all
+    // and if we can the resulting block must not be a splinter, if it results in splinter we don't split
+    // if it doesn't then we will split by doing the same strategy as in sf_realloc
+    size_t headerAndSize = size + 8;
+    
+    size_t actualSize = 0;
+    
+    actualSize = computeMemorySize(headerAndSize);
+    
+    // Results in a splinter, just use the entire block, no need to free the block after
+    if(movingPtrLength - actualSize < 32)
+    {
+        // Set the header of the movingPtr
+        sf_block * returningPtr = (sf_block *)(movingPtr - 8);
+        returningPtr->header = movingPtrLength | THIS_BLOCK_ALLOCATED;
+        returningPtr->header = returningPtr->header | PREV_BLOCK_ALLOCATED;
+        
+        // Call sf_free on the blockPtr
+        sf_free(returnedPtr);
+        
+        return movingPtr;
+    }
+    // Doesn't result in a splinter so we can split and free the block after as well
+    else
+    {
+        sf_block * nextBlockPtr = (sf_block *)(movingPtr + actualSize - 8);
+        nextBlockPtr->header = (movingPtrLength - actualSize) | THIS_BLOCK_ALLOCATED;
+        nextBlockPtr->header = nextBlockPtr->header | PREV_BLOCK_ALLOCATED;
+        
+        // Set the header of the movingPtr
+        sf_block * returningPtr = (sf_block *)(movingPtr - 8);
+        returningPtr->header = actualSize | THIS_BLOCK_ALLOCATED;
+        returningPtr->header = returningPtr->header | PREV_BLOCK_ALLOCATED;
+        
+        
+        // Call sf_free on blockPtr
+        sf_free(returnedPtr);
+        sf_free((char *)nextBlockPtr + 8);
+        
+        return movingPtr;
+    }
 }
