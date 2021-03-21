@@ -181,22 +181,22 @@ Test(sfmm_basecode_suite, realloc_smaller_block_free_block, .timeout = TEST_TIME
 //DO NOT DELETE THESE COMMENTS
 //############################################
 
-Test(sfmm_basecode_suite, ranout_of_memory, .timeout = TEST_TIMEOUT)
-{
-	int * ptrs[16];
+// Test(sfmm_basecode_suite, ranout_of_memory, .timeout = TEST_TIMEOUT)
+// {
+// 	int * ptrs[16];
 	
-	for(int i=0;i<16;i++)
-	{
-		ptrs[i] = sf_malloc(9000);
-	}
+// 	for(int i=0;i<16;i++)
+// 	{
+// 		ptrs[i] = sf_malloc(9000);
+// 	}
 	
-	for(int i=0;i<16;i++)
-	{
-		*(ptrs[i]) = 5;
-	}
-	printf("%p\n", ptrs[15]);
-	cr_assert(ptrs[15] == NULL, "ENOMEM is not set due to memory ran out");
-}
+// 	for(int i=0;i<16;i++)
+// 	{
+// 		*(ptrs[i]) = 5;
+// 	}
+// 	printf("%p\n", ptrs[15]);
+// 	cr_assert(ptrs[15] == NULL, "ENOMEM is not set due to memory ran out");
+// }
 
 Test(sfmm_basecode_suite, sf_memalign_test, .timeout = TEST_TIMEOUT)
 {
@@ -247,5 +247,129 @@ Test(sfmm_basecode_suite, sf_realloc_merge_withwilderness, .timeout = TEST_TIMEO
     ptr4 = sf_realloc(ptr4, 123);
 	
 	assert_free_block_count(2288, 1);
+}
+
+Test(sfmm_basecode_suite, sf_free_merge_next_and_prev, .timeout = TEST_TIMEOUT)
+{
+	char * p1 = sf_malloc(200);
+	*(p1) = 'A';
+	char * p2 = sf_malloc(666);
+	*(p2) = 'A';
+	char * p3 = sf_malloc(12);
+	*(p3) = 'A';
+	char * p4 = sf_malloc(32);
+	*(p4) = 'A';
+	char * p5 = sf_malloc(9999);
+	*(p5) = 'A';
 	
+	sf_free(p1);
+	sf_free(p3);
+	
+	sf_free(p2);
+	
+	assert_free_block_count(928, 1);
+	assert_free_block_count(5344, 1);
+}
+
+Test(sfmm_basecode_suite, sf_alloc_correct_list, .timeout = TEST_TIMEOUT)
+{
+	char * p1 = sf_malloc(200);
+	*(p1) = 'A';
+	char * p2 = sf_malloc(666);
+	*(p2) = 'A';
+	char * p3 = sf_malloc(12);
+	*(p3) = 'A';
+	char * p4 = sf_malloc(32);
+	*(p4) = 'A';
+	char * p5 = sf_malloc(9999);
+	*(p5) = 'A';
+	
+	sf_free(p1);
+	sf_free(p3);
+	
+	sf_free(p2); // A 928 byte block at list 5
+	
+	p1 = sf_malloc(500); // Allocating a 512 byte block, the left over 416 should be in list 4
+	
+	assert_free_block_count(416, 1);
+	assert_free_block_count(5344, 1);
+}
+
+Test(sfmm_basecode_suite, sf_memalign_testing, .timeout = TEST_TIMEOUT)
+{
+	char * p1 = sf_malloc(200);
+	*(p1) = 'A';
+	char * p2 = sf_malloc(666);
+	*(p2) = 'A';
+	char * p3 = sf_malloc(12);
+	*(p3) = 'A';
+	char * p4 = sf_malloc(32);
+	*(p4) = 'A';
+	char * p5 = sf_malloc(9999);
+	*(p5) = 'A';
+	
+	sf_free(p2);
+	sf_free(p4);
+	
+    p2 = sf_memalign(90, 128);
+	
+	cr_assert((size_t)p2 % 128 == 0 , "Not memaligned");
+	
+	sf_free(p1);
+	sf_free(p2);
+	sf_free(p3);
+	sf_free(p5);
+	
+	assert_free_block_count(0, 1);
+}
+
+Test(sfmm_basecode_suite, bunch_of_allocate_and_free, .timeout = TEST_TIMEOUT)
+{
+	char * p1 = sf_malloc(12);
+	*(p1) = 'A';
+	char * p2 = sf_malloc(12);
+	*(p2) = 'A';
+	char * p3 = sf_malloc(40);
+	*(p3) = 'A';
+	char * p4 = sf_malloc(40);
+	*(p4) = 'A';
+	char * p5 = sf_malloc(67);
+	*(p5) = 'A';
+	char * p6 = sf_malloc(67);
+	*(p6) = 'A';
+	char * p7 = sf_malloc(150);
+	*(p7) = 'A';
+	char * p8 = sf_malloc(150);
+	*(p8) = 'A';
+	char * p9 = sf_malloc(270);
+	*(p9) = 'A';
+	char * p10 = sf_malloc(270);
+	*(p10) = 'A';
+	char * p11 = sf_malloc(700);
+	*(p11) = 'A';
+	char * p12 = sf_malloc(700);
+	*(p12) = 'A';
+	char * p13 = sf_malloc(2000);
+	*(p13) = 'A';
+	char * p14 = sf_malloc(2000);
+	*(p14) = 'A';
+	
+	sf_free(p1);
+	sf_free(p3);
+	sf_free(p5);
+	sf_free(p7);
+	sf_free(p9);
+	sf_free(p11);
+	sf_free(p13);
+	
+	cr_assert((sf_free_list_heads[0].body.links.next->header >> 4 << 4) == 32, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[1].body.links.next->header >> 4 << 4) == 48, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[2].body.links.next->header >> 4 << 4) == 80, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[3].body.links.next->header >> 4 << 4) == 160, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[4].body.links.next->header >> 4 << 4) == 288, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[5].body.links.next->header >> 4 << 4) == 720, "Size doesn't match error");
+	cr_assert((sf_free_list_heads[6].body.links.next->header >> 4 << 4) == 2016, "Size doesn't match error");
+	
+	
+	assert_free_block_count(0, 8);
 }
