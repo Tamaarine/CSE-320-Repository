@@ -4,47 +4,154 @@
 
 int main(int argc, char const *argv[]) {
     
-    char * p1 = sf_malloc(12);
-	*(p1) = 'A';
-	char * p2 = sf_malloc(12);
-	*(p2) = 'A';
-	char * p3 = sf_malloc(40);
-	*(p3) = 'A';
-	char * p4 = sf_malloc(40);
-	*(p4) = 'A';
-	char * p5 = sf_malloc(67);
-	*(p5) = 'A';
-	char * p6 = sf_malloc(67);
-	*(p6) = 'A';
-	char * p7 = sf_malloc(150);
-	*(p7) = 'A';
-	char * p8 = sf_malloc(150);
-	*(p8) = 'A';
-	char * p9 = sf_malloc(270);
-	*(p9) = 'A';
-	char * p10 = sf_malloc(270);
-	*(p10) = 'A';
-	char * p11 = sf_malloc(700);
-	*(p11) = 'A';
-	char * p12 = sf_malloc(700);
-	*(p12) = 'A';
-	char * p13 = sf_malloc(2000);
-	*(p13) = 'A';
-	char * p14 = sf_malloc(2000);
-	*(p14) = 'A';
+    // char * ptr1 = sf_malloc(50 * sizeof(double));
+    // *(ptr1) = 'A';
     
-    sf_free(p1);
-	sf_free(p3);
-	sf_free(p5);
-	sf_free(p7);
-	sf_free(p9);
-	sf_free(p11);
-	sf_free(p13);
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptr2 = sf_malloc(78 * sizeof(double));
+    // *(ptr2) = 'A';
+    
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptr3 = sf_malloc(1 * sizeof(double));
+    // *(ptr3) = 'A';
+    
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // ptr2 = sf_realloc(ptr2, 500);
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // ptr3 = sf_realloc(ptr3, 12); // Should be just using the same block
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptr4 = sf_malloc(7000); // Allocate 7008 bytes 
+    // *(ptr4) = 'A'; // Should only have 48 bytes left
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // ptr3 = sf_realloc(ptr3, 10); // Should again use the same block now that it is not in fron tof wilderness
+    // sf_show_blocks();
+    // printf("\n");
+    
+    
+    // char * ptr5 = sf_realloc(ptr2, 200); // Reallocing with merging
+    // *(ptr5) = 'A';
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptr6 = sf_realloc(ptr4, 2300); //Reallocing with merging with the wilderness
+    // *(ptr6) = 'A';
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptrA = sf_memalign(50, 128); // Want a 50 byte block that is 128 aligned
+    // *(ptrA) = 'A';
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptrB = sf_memalign(1200, 32); // Want a 1200 byte block that is 32 byte aligned
+    // *(ptrB) = 'A';
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // sf_free(ptr1);
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // char * ptrC = sf_memalign(200, 64); // Want a 200 byte block that is 64 aligned
+    // *(ptrC) = 'A'; // No idea which block is which by this point sorry
+    // sf_show_blocks();
+    // printf("\n");
+    
+    
+    // char * ptrD = sf_memalign(32, 32); // Want a 32 byte block that is 32 byte aligned
+    // *(ptrD) = 'A';
+    // sf_show_blocks();
+    // printf("\n");
+    
+    // sf_show_free_lists();
+    
+        char * ptr1 = sf_malloc(50 * sizeof(double));
+    *(ptr1) = 'A';
     
     sf_show_blocks();
     printf("\n");
     
-    sf_show_free_lists();
+    char * ptr2 = sf_malloc(78 * sizeof(double));
+    *(ptr2) = 'A';
     
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptr3 = sf_malloc(1 * sizeof(double));
+    *(ptr3) = 'A';
+    
+    sf_show_blocks();
+    printf("\n");
+    
+    ptr2 = sf_realloc(ptr2, 500);
+    sf_show_blocks();
+    printf("\n");
+    
+    ptr3 = sf_realloc(ptr3, 12); // Should be just using the same block
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptr4 = sf_malloc(7000); // Allocate 7008 bytes 
+    *(ptr4) = 'A'; // Should only have 48 bytes left
+    sf_show_blocks();
+    printf("\n");
+    
+    ptr3 = sf_realloc(ptr3, 10); // Should again use the same block now that it is not in fron tof wilderness
+    sf_show_blocks();
+    printf("\n");
+    
+    
+    char * ptr5 = sf_realloc(ptr2, 200); // Reallocing with merging
+    *(ptr5) = 'A';
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptr6 = sf_realloc(ptr4, 2300); //Reallocing with merging with the wilderness
+    *(ptr6) = 'A';
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptrA = sf_memalign(50, 128); // Want a 50 byte block that is 128 aligned
+    *(ptrA) = 'A';
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptrB = sf_memalign(1200, 32); // Want a 1200 byte block that is 32 byte aligned
+    *(ptrB) = 'A';
+    sf_show_blocks();
+    printf("\n");
+    
+    sf_free(ptr1);
+    sf_show_blocks();
+    printf("\n");
+    
+    char * ptrC = sf_memalign(200, 64); // Want a 200 byte block that is 64 aligned
+    *(ptrC) = 'A'; // No idea which block is which by this point sorry
+    sf_show_blocks();
+    printf("\n");
+    
+    
+    sf_free(ptrC);
+    sf_free(ptrB);
+    sf_free(ptrA);
+    sf_free(ptr6);
+    sf_free(ptr5);
+    sf_free(ptr3);
+    
+    sf_show_blocks();
+    printf("\n");
+    sf_show_free_lists();
     return EXIT_SUCCESS;
 }

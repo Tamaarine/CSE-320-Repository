@@ -979,7 +979,10 @@ void *sf_memalign(size_t size, size_t align)
     // But if we are outside then we can check if it is a multiple of align
     if((size_t)returnedPtr % align == 0)
     {
-        return returnedPtr;
+        // If it is already aligned we have to call sf_realloc to resize the block we got
+        char * returningPtr = sf_realloc(returnedPtr, size); // Clever ass idea
+        
+        return returningPtr;
     }
     
     // However if it is not aligned then we have to find that larger address
@@ -993,8 +996,12 @@ void *sf_memalign(size_t size, size_t align)
     {
         movingPtr = movingPtr + 1;
         
+        // We have to make sure that the block is sufficiently far away the initial point
+        // i.e the distance should be greater than or equal to 32 byte
+        size_t diff = movingPtr - (char *)blockPtr;
+        
         // If we finally reached the aligned address we will break from this loop
-        if((size_t)movingPtr % align == 0)
+        if((size_t)movingPtr % align == 0 && diff >= 32)
         {
             break;
         }   
@@ -1047,7 +1054,6 @@ void *sf_memalign(size_t size, size_t align)
         sf_block * returningPtr = (sf_block *)(movingPtr - 8);
         returningPtr->header = actualSize | THIS_BLOCK_ALLOCATED;
         returningPtr->header = returningPtr->header | PREV_BLOCK_ALLOCATED;
-        
         
         // Call sf_free on blockPtr
         sf_free(returnedPtr);
