@@ -388,3 +388,24 @@ Test(sfmm_basecode_suite, run_out_of_memory, .timeout = TEST_TIMEOUT)
 	cr_assert(sf_errno == ENOMEM, "Didn't run out of memory");
 }
 
+Test(sfmm_base_code_suite, garbage_free_pointer, .signal=SIGABRT, .timeout = TEST_TIMEOUT)
+{
+	char * ptr = sf_mem_start() + 40;
+	
+	sf_free(ptr);
+}
+
+Test(sfmm_base_code_suite, double_free, .signal=SIGABRT, .timeout = TEST_TIMEOUT)
+{
+	char * ptr1 = sf_malloc(50 * sizeof(double));
+    *(ptr1) = 'A';
+    
+    char * ptr2 = sf_malloc(78 * sizeof(double));
+    *(ptr2) = 'A';
+    
+    char * ptr3 = sf_malloc(1 * sizeof(double));
+    *(ptr3) = 'A';
+    
+	sf_free(ptr1);
+	sf_free(ptr1); // Freeing a pointer that we already freed. Should abort
+}
