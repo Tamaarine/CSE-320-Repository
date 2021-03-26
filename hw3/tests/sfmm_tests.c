@@ -373,3 +373,18 @@ Test(sfmm_basecode_suite, bunch_of_allocate_and_free, .timeout = TEST_TIMEOUT)
 	
 	assert_free_block_count(0, 8);
 }
+
+Test(sfmm_basecode_suite, run_out_of_memory, .timeout = TEST_TIMEOUT)
+{
+	char * ptrs[16];
+	
+	for(int i=0;i<16;i++)
+	{
+		ptrs[i] = sf_malloc(12999);
+		if(ptrs[i] != NULL)
+			*(ptrs[i]) = 'A';
+	}
+	
+	cr_assert(sf_errno == ENOMEM, "Didn't run out of memory");
+}
+
