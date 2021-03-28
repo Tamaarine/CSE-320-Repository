@@ -12,7 +12,7 @@
 #include "sf_readline.h"
 #include "helpingFunction.h"
 
-void run_cli(FILE *in, FILE *out)
+int run_cli(FILE *in, FILE *out)
 {
     // TO BE IMPLEMENTED. Please kill me
     // fprintf(stderr, "You have to implement run_cli() before the application will function.\n");
