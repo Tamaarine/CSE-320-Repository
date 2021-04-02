@@ -14,6 +14,11 @@
 
 int run_cli(FILE *in, FILE *out)
 {
+    if(in != stdin)
+    {
+        // This is for batch mode, when in is not equal to stdin
+    }
+    
     int finished = 0;
     
     // While the user is not done with the program we will keep looping and display this prompt
@@ -87,6 +92,77 @@ int run_cli(FILE *in, FILE *out)
                     sf_cmd_ok();
             }
         }
+        // For the command 'conversion' which takes in 3 required arguments and 0 to as many optional arguments as it wants 
+        else if(strcmp(keyword, "conversion") == 0)
+        {
+            // If it is less than 3 then we will print error
+            if(numArgs < 3)
+            {
+                printRequiredArgs(3, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                // If enough arguments are provided then we will do our parsings
+                strcpy(userInputCpy, userInput);
+                strtok(userInput, " "); // Skip keyword
+                char * inputtype1 = strtok(NULL, " ");
+                char * inputtype2 = strtok(NULL, " ");
+                
+                FILE_TYPE * fileType1 = find_type(inputtype1);
+                FILE_TYPE * fileType2 = find_type(inputtype2);
+                
+                if(fileType1 == NULL)
+                {
+                    fprintf(out, "Unknown file type: %s\n", inputtype1);
+                    sf_cmd_error("conversion");
+                }
+                else if(fileType2 == NULL)
+                {
+                    fprintf(out, "Unknown file type: %s\n", inputtype2);
+                    sf_cmd_error("conversion");
+                }
+                else
+                {
+                    // However if we are able to get here then that means everything was fine
+                    // all the file types are defined now we can begin inserting by calling define_conversion
+                    // But we must define the array of strings that we pass in first which is just simply the program and the args it takes
+                    char * cmds[numArgs - 2 + 1]; // The size is just numArgs - 2 add 1 for the null terminator element
+                    
+                    char * token = strtok(NULL, " ");
+                    cmds[0] = token; // The conversion program name
+
+                    for(int i=1;i<numArgs - 2;i++)
+                    {
+                        token = strtok(NULL, " ");
+                        cmds[i] = token;
+                    }
+                    
+                    cmds[numArgs - 2] = NULL; // Null terminator for the last element
+                    
+                    // Okay with all the information gathered up we can call define_conversion
+                    CONVERSION * returnedConversion = define_conversion(inputtype1, inputtype2, cmds);
+                    
+                    if(returnedConversion == NULL)
+                        sf_cmd_error("Lack of memory or other error");
+                    else
+                        sf_cmd_ok();
+                }
+            }
+        }
+        // For the command 'print' which will take 1 required argument
+        else if(strcmp(keyword, "print") == 0)
+        {
+            if(numArgs < 1)
+            {
+                printRequiredArgs(2, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                
+            }
+        }
         // For the command 'printer' which will take in 2 required arguments
         else if(strcmp(keyword, "printer") == 0)
         {
@@ -114,6 +190,11 @@ int run_cli(FILE *in, FILE *out)
                 else if(foundType == NULL)
                 {
                     fprintf(out, "Unknown file type: %s\n", fileType);
+                    sf_cmd_error("printer");
+                }
+                else if(printerExist(printerName))
+                {
+                    fprintf(out, "Printer name already exist\n");
                     sf_cmd_error("printer");
                 }
                 else
