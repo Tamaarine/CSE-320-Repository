@@ -11,12 +11,31 @@
 #include "conversions.h"
 #include "sf_readline.h"
 #include "helpingFunction.h"
+#include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <fcntl.h>
+
+/**
+ * This function will attempt to add a given job struct into the 
+ * It will return the index of the position of toAdd being added to the list
+ * will return -1 if it cannot find a proper position to put the job
+ */
+int addJobToList(JOB toAdd);
+
+/**
+ * This function will scan the list of jobs that is queued and find one
+ * that can be started
+ */
+void scanJobs();
+
 
 int run_cli(FILE *in, FILE *out)
 {
     if(in != stdin)
     {
         // This is for batch mode, when in is not equal to stdin
+        printf("hahaha you failed\n");
     }
     
     int finished = 0;
@@ -25,6 +44,13 @@ int run_cli(FILE *in, FILE *out)
     while(!finished)
     {
         char * userInput = sf_readline("imp> ");
+        
+        // When using input redirection the last line will be NULL, so have to put this condition here to signal EOF
+        if(userInput == NULL)
+        {
+            return 0;
+        }
+        
         char userInputCpy[strlen(userInput) + 1];
         strcpy(userInputCpy, userInput); // Make a copy for strtok to work on
         
@@ -153,14 +179,117 @@ int run_cli(FILE *in, FILE *out)
         // For the command 'print' which will take 1 required argument
         else if(strcmp(keyword, "print") == 0)
         {
+            // Only one required argument is needed
             if(numArgs < 1)
             {
-                printRequiredArgs(2, numArgs, keyword, out);
+                printRequiredArgs(1, numArgs, keyword, out);
                 sf_cmd_error("arg count");
             }
             else
             {
+                strcpy(userInputCpy, userInput);
+                strtok(userInput, " "); // SKip keyword
+                char * fileName = strtok(NULL, " ");
                 
+                char * mallocName = malloc(strlen(fileName) + 1);
+                strcpy(mallocName, fileName);
+                                
+                // Variable to hold the pointers to the name of each printer
+                char * printers = strtok(NULL, " ");
+                
+                FILE_TYPE * toAddType = infer_file_type(fileName);
+                
+                if(toAddType == NULL)
+                {
+                    sf_cmd_error("print can't infer file type");
+                }
+                // No printer is specified then all printers are eligible
+                else if(printers == NULL)
+                {
+                    JOB toAdd;
+                    toAdd.type = toAddType;
+                    toAdd.eligiblePrinter = 0xffffffff;
+                    toAdd.jobPositionTaken = 1;
+                    toAdd.status = JOB_CREATED;
+                    toAdd.filename = mallocName;
+                    
+                    int index = addJobToList(toAdd);
+                    sf_job_created(index, fileName, toAddType->name);
+                    fprintf(out, "JOB[%d]: type=%s, eligible=%x, file=%s\n", index, toAddType->name, toAdd.eligiblePrinter, fileName);
+                    sf_cmd_ok();
+                }
+                else
+                {
+                    // There are specific printers that we have to add to the eligible printers
+                    char * validInputPrinters[MAX_PRINTERS];
+                    int i = 0;
+                    
+                    while(printers != NULL)
+                    {  
+                        if(printerExist(printers))
+                        {
+                            validInputPrinters[i] = printers;
+                            i++;
+                        }
+                        printers = strtok(NULL, " ");
+                    }
+                    
+                    unsigned int eligible = 0;
+                    
+                    // Now after the while loop validInputPrinters will only have names of the valid printers
+                    // from the input and we will toggle those printers on
+                    for(int k=0;i<MAX_PRINTERS;i++)
+                    {
+                        int printerIndex = getPrinterIndex(validInputPrinters[k]);
+                        
+                        int mask = 1 << printerIndex;
+                        
+                        eligible = eligible | mask;
+                    }
+                    
+                    if(i == 0)
+                    {
+                        eligible = 0xffffffff;
+                        printf("None of the printer specified are valid\n");
+                    }
+                    
+                    // Finally we can make the job struct and insert it
+                    JOB toAdd;
+                    toAdd.eligiblePrinter = eligible;
+                    toAdd.filename = mallocName;
+                    toAdd.jobPositionTaken = 1;
+                    toAdd.status = JOB_CREATED;
+                    toAdd.type = toAddType;
+                    
+                    int index = addJobToList(toAdd);
+                    sf_job_created(index, fileName, toAddType->name);
+                    fprintf(out, "JOB[%d]: type=%s, eligible=%x, file=%s\n", index, toAddType->name, toAdd.eligiblePrinter, fileName);
+                    sf_cmd_ok();
+                }
+            }
+        }
+        else if(strcmp(keyword, "jobs") == 0)
+        {
+            if(numArgs != 0)
+            {
+                printRequiredArgs(0, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                // Print the jobs list
+                for(int i=0;i<MAX_JOBS;i++)
+                {
+                    JOB currentJob = list_jobs[i];
+                    
+                    if(currentJob.jobPositionTaken)
+                    {
+                        fprintf(out, "JOB[%d]: type=%s, eligible=%x, file=%s\n", i, currentJob.type->name, currentJob.eligiblePrinter, currentJob.filename);
+                        sf_job_status(i, currentJob.status);
+                    }
+                }
+                
+                sf_cmd_ok();
             }
         }
         // For the command 'printer' which will take in 2 required arguments
@@ -211,8 +340,8 @@ int run_cli(FILE *in, FILE *out)
                     
                     sf_printer_defined(toInsert.printerName, toInsert.type->name);
                     sf_printer_status(toInsert.printerName, toInsert.status);
-                    fprintf(out, "PRINTER: id=%d, name=%s, type=%s, status=%d\n"
-                    , toInsert.id, toInsert.printerName, toInsert.type->name, toInsert.status);
+                    fprintf(out, "PRINTER: id=%d, name=%s, type=%s, status=%s\n"
+                    , toInsert.id, toInsert.printerName, toInsert.type->name, printer_status_names[toInsert.status]);
                     sf_cmd_ok();
                 }
             }
@@ -234,11 +363,49 @@ int run_cli(FILE *in, FILE *out)
                     
                     // First the status by doing the event function
                     sf_printer_status(currentPrinter.printerName, currentPrinter.status);
-                    fprintf(out, "PRINTER: id=%d, name=%s, type=%s, status=%d\n", currentPrinter.id, currentPrinter.printerName,
-                    currentPrinter.type->name, currentPrinter.status);
+                    fprintf(out, "PRINTER: id=%d, name=%s, type=%s, status=%s\n", currentPrinter.id, currentPrinter.printerName,
+                    currentPrinter.type->name, printer_status_names[currentPrinter.status]);
                 }
                 sf_cmd_ok();
             }
+        }
+        else if(strcmp(keyword, "enable") == 0)
+        {
+            if(numArgs != 1)
+            {
+                printRequiredArgs(1, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                strcpy(userInputCpy, userInput);
+                strtok(userInput, " "); // Skip keyword
+                
+                char * printerName = strtok(NULL, " ");
+                
+                if(printerExist(printerName))
+                {
+                    // The printer exist hence we will switch the status of the printer
+                    // to be printer_idle
+                    int index = getPrinterIndex(printerName);
+                    
+                    PRINTER * printerPtr = &list_printers[index];
+                    printerPtr->status = PRINTER_IDLE;
+                    fprintf(out, "status: %s\n", printer_status_names[PRINTER_DISABLED]);
+                    scanJobs();
+                    
+                }
+                else
+                {
+                    sf_cmd_error("enable (no printer)");
+                }
+            }
+        }
+        else if(strcmp(keyword, "test") == 0)
+        {
+            CONVERSION ** arr = find_conversion_path("pdf", "pdf");
+            printf("first element %p\n", arr);
+            
         }
         // For the command 'quit'
         else if(strcmp(keyword, "quit") == 0)
@@ -257,7 +424,6 @@ int run_cli(FILE *in, FILE *out)
                 return -1;
             }
         }
-        
         // Before we begin our new iteration we have to free userInput, because it
         // malloc a new string dynamically every call to sf_readline
         free(userInput);
@@ -267,4 +433,107 @@ int run_cli(FILE *in, FILE *out)
     // TODO We must free all the printer names that we have used or else it will be memory leaks
     return 0;
     
+}
+
+int addJobToList(JOB toAdd)
+{
+    // Use a for loop to scan the list of jobs and find the first one that is not occupied
+    for(int i=0;i<MAX_JOBS;i++)
+    {
+        // Gets a copy of the i-th job
+        JOB currentJob = list_jobs[i];
+        
+        // If the job position is not taken then we will insert toAdd to that position
+        if(currentJob.jobPositionTaken == 0)
+        {
+            list_jobs[i] = toAdd;
+            
+            return i;
+        }
+    }
+    
+    return -1;
+}
+
+int formatMatch(char * printerType, char * fileType)
+{
+    if(strcmp(printerType, fileType) == 0)
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void scanJobs()
+{
+    for(int i=0;i<MAX_JOBS;i++)
+    {
+        JOB * jobPtr = &list_jobs[i];
+        
+        if(jobPtr->jobPositionTaken && jobPtr->status == JOB_CREATED)
+        {
+            // This means that this job is queued, we will see if the any of the eligible printer can be used
+            // to print this file
+            int mask = 1;
+            
+            for(int i=0;i<nextFreeIndex;i++)
+            {
+                mask <<= i;
+                int result = jobPtr->eligiblePrinter & mask;
+                
+                PRINTER * printerPtr = &list_printers[i];
+                
+                // If the result is not 0 then that means index i of list_printers is an eligible printer that can be used
+                if(result)
+                {
+                    // Use bin/cat to do the conversion because that's the same format
+                    if(formatMatch(jobPtr->type->name, printerPtr->type->name))
+                    {
+                        pid_t id = fork();
+                        
+                        if(id == 0)
+                        {
+                            // Child process the master process
+                            // setpgid(0, 0);
+                            
+                            int printerFd = imp_connect_to_printer(printerPtr->printerName, printerPtr->type->name, PRINTER_NORMAL);
+                            
+                            if(fork() == 0)
+                            {
+                                int openedFileFd = open(jobPtr->filename, O_RDONLY);
+                                
+                                dup2(openedFileFd, 0);
+                                dup2(printerFd, 1);
+                                
+                                char * arg[] = {"/bin/cat", NULL};
+                                execvp("/bin/cat", arg);
+                            }
+                            else
+                            {
+                                pid_t returned;
+                                wait(&returned);
+                                printf("reaped in master\n");
+                                exit(0);
+                            }
+                        }
+                        else
+                        {
+                            printf("Im in the main process\n");
+                            int status;
+                            waitpid(id, &status, 0);
+                        }
+                    }
+                    else
+                    {
+                        // Need to check if there is a conversion path from fileType to printerType
+                        
+                        
+                    }
+                }
+            }
+        }
+    }
 }

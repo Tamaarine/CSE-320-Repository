@@ -23,13 +23,14 @@ PRINTER list_printers[MAX_PRINTERS];
  */
 typedef struct job
 {
-    int job_number;
     FILE_TYPE * type; // Type for the file
+    char * filename;
     int status;
-    PRINTER * eligiblePrinters[]; // An array of eligiblePrinters, if none specified then NULL meaning all printer are eligible
+    unsigned int eligiblePrinter; // 32 bitmap that will tell which printer is elibile to be used to print this job. Read right to left
+    char jobPositionTaken; // A 1 or 0 to indicate if this job in the list is occupied already or not
 } JOB;
 
-// The global job array which keeps track of all the jobs
+// The global job array which keeps track of all the jobs, gotta implement it like a queue i suppose
 JOB list_jobs[MAX_JOBS];
 
 /**
@@ -44,21 +45,35 @@ void printRequiredArgs(int required, int given, char * command, FILE * out);
  */
 int printerExist(char * printerName)
 {
-    int output = 0; // Assume the printer doesn't exist
-    
     for(int i=0;i<nextFreeIndex;i++)
     {
         PRINTER currentPrinter = list_printers[i];
         
         if(strcmp(printerName, currentPrinter.printerName) == 0)
         {
-            // Same printer found
-            output = 1;
-            return output;
+            return 1;
         }
     }
     
-    return output;
+    return 0;
+}
+
+/**
+ * This function will find the index of the printer of the given name in the array
+ * Return -1 if it couldn't find it
+ */
+int getPrinterIndex(char * printerName)
+{
+    for(int i=0;i<nextFreeIndex;i++)
+    {
+        PRINTER currentPrinter = list_printers[i];
+        
+        if(strcmp(printerName, currentPrinter.printerName) == 0)
+        {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /**
@@ -70,3 +85,4 @@ void freeAllPrinters();
  * Function which is called to free all of the jobs in the list
  */
 void freeAllJobs();
+
