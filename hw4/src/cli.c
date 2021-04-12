@@ -13,8 +13,12 @@
 #include "helpingFunction.h"
 #include <unistd.h>
 #include <sys/wait.h>
-#include <signal.h>
 #include <fcntl.h>
+#include <signal.h>
+
+volatile sig_atomic_t startReaping;
+int reapedChild;
+volatile sig_atomic_t doneReapingAll;
 
 /**
  * This function will attempt to add a given job struct into the 
@@ -29,9 +33,54 @@ int addJobToList(JOB toAdd);
  */
 void scanJobs();
 
+void sigchld_handler()
+{
+    // startReaping = 1;
+}
+
+void readlineCallback()
+{
+    if(startReaping)
+    {
+        // Start reaping the childs
+        while(wait(NULL) > 0)
+        {
+            // printf("reaping the child\n");   
+        }
+        
+        startReaping = 0;
+    } 
+}
+
+void mastersigchld_handler()
+{
+    sigset_t mask;
+    sigset_t prev;
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &prev);
+    
+    pid_t returnedPid;
+    
+    // Block singal
+    while(reapedChild > 0 && (returnedPid = waitpid(-1, NULL, WNOHANG)) > 0)
+    {
+        // Reap 
+        reapedChild --;
+    }
+    
+    if(reapedChild == 0)
+    {
+        doneReapingAll = 1;
+    }
+    sigprocmask(SIG_UNBLOCK, &mask, NULL);
+}
 
 int run_cli(FILE *in, FILE *out)
 {
+    // FIrst we install the signal handler for the SIGCHID
+    signal(SIGCHLD, sigchld_handler);
+    sf_set_readline_signal_hook(readlineCallback);
+    
     if(in != stdin)
     {
         // This is for batch mode, when in is not equal to stdin
@@ -391,7 +440,6 @@ int run_cli(FILE *in, FILE *out)
                     
                     PRINTER * printerPtr = &list_printers[index];
                     printerPtr->status = PRINTER_IDLE;
-                    fprintf(out, "status: %s\n", printer_status_names[PRINTER_DISABLED]);
                     scanJobs();
                     
                 }
@@ -403,7 +451,7 @@ int run_cli(FILE *in, FILE *out)
         }
         else if(strcmp(keyword, "test") == 0)
         {
-            CONVERSION ** arr = find_conversion_path("pdf", "pdf");
+            CONVERSION ** arr = find_conversion_path("pdf", "zed");
             printf("first element %p\n", arr);
             
         }
@@ -492,6 +540,9 @@ void scanJobs()
                     // Use bin/cat to do the conversion because that's the same format
                     if(formatMatch(jobPtr->type->name, printerPtr->type->name))
                     {
+                        // Printer and job are set to busy and put to work
+                                          
+                        
                         pid_t id = fork();
                         
                         if(id == 0)
@@ -515,22 +566,170 @@ void scanJobs()
                             {
                                 pid_t returned;
                                 wait(&returned);
-                                printf("reaped in master\n");
+                                // printf("reaped in master\n");
                                 exit(0);
                             }
                         }
-                        else
-                        {
-                            printf("Im in the main process\n");
-                            int status;
-                            waitpid(id, &status, 0);
-                        }
+                        // Main program will continue. The reap will occur when child is finished
                     }
                     else
                     {
+                        // Printer and job are set to busy and put to work
+                        jobPtr->status = JOB_RUNNING;
+                        printerPtr->status = PRINTER_BUSY;
+                        
                         // Need to check if there is a conversion path from fileType to printerType
+                        // Must call find_conversion_path
+                        CONVERSION ** path = find_conversion_path(jobPtr->type->name, printerPtr->type->name);
                         
-                        
+                        // There is a path from the job type to the printer type
+                        if(path != NULL)
+                        {
+                            int conversionLength = lengthOfConversionPath(path);
+                            
+                            // pid_t masterid = fork();
+                            int printerFd = imp_connect_to_printer(printerPtr->printerName, printerPtr->type->name, PRINTER_NORMAL);
+                            
+                            int fd[2]; // For storing the file descriptor
+                            int prevFd; // For storing the read end of the previous pipe fd value
+                            
+                            if(fork() == 0) // The master process for forking all the other child for conversion pipeline
+                            {
+                                setpgid(0, 0);
+                                signal(SIGCHLD, mastersigchld_handler); // Signal handler
+                                reapedChild = conversionLength;
+                                
+                                // int childCount = conversionLength;
+                                // int childStatus[conversionLength];
+                                
+                                sigset_t mask;
+                                sigset_t prev;
+                                sigfillset(&mask);
+                                
+                                sigprocmask(SIG_BLOCK, &mask, &prev);
+                                
+                                // Then we must set up the pipeline for it if it is 2 or more conversion required
+                                // Need a for loop to go through each CONVERSION
+                                for(int i=0;i<conversionLength;i++)
+                                {
+                                    // Only one process is needed hence we just need to set up one fork no need for pipeline
+                                    if(i == 0 && i == conversionLength - 1)
+                                    {
+                                        if(fork() == 0)
+                                        {
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
+                                            
+                                            // Child process that will be doing the work
+                                            int openedFile = open(jobPtr->filename, O_RDONLY);
+                                            
+                                            dup2(openedFile, 0); // Replace stdin
+                                            dup2(printerFd, 1); // Repalce stdout
+                                            
+                                            char * cmd = *(path[0]->cmd_and_args); // Get the command
+                                            
+                                            execvp(cmd, path[0]->cmd_and_args);
+                                        }
+                                    }
+                                    else if(i == 0)
+                                    {
+                                        int pipeStatus = pipe(fd);
+                                        prevFd = fd[0];
+                                        
+                                        if(pipeStatus != 0)
+                                        {
+                                            fprintf(stderr, "Pipe messed up\n");
+                                            exit(1);
+                                        }
+                                        
+                                        pid_t childpid;
+                                        // If it first one then we will just open the file, call pipe, redirect stdout to the pipe
+                                        if((childpid = fork()) == 0)
+                                        {
+                                            
+                                            close(fd[0]); // Close the read side of the pipe since the child won't use it
+                                            int openedFile = open(jobPtr->filename, O_RDONLY);
+                                            
+                                            dup2(openedFile, 0); // Replace stdin for the first process because it takes in the file
+                                            dup2(fd[1], 1); // Replace stdout with the write side of the pipe
+                                            
+                                            char * cmd = *(path[i]->cmd_and_args);
+                                            
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
+                                            execvp(cmd, path[i]->cmd_and_args);
+                                        }
+                                        else
+                                        {
+                                            // Close the write side for the master process since it is not using it
+                                            close(fd[1]);
+                                        }
+                                    }
+                                    else if(i == conversionLength - 1)
+                                    {
+                                        // Finally this is the final process, it doesn't need to make a new pipeline
+                                        // just need to take in the stdout of the previous pipeline as stdin
+                                        // stdout will just be the printer file descriptor
+                                        pid_t childpid;
+                                        if((childpid = fork()) == 0)
+                                        {
+                                            dup2(prevFd, 0);
+                                            dup2(printerFd, 1);
+                                            
+                                            char * cmd = *(path[i]->cmd_and_args);
+                                            
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
+                                            execvp(cmd, path[i]->cmd_and_args);
+                                        }
+                                        else
+                                        {
+                                            printf("convert pid is %d\n", childpid);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        int writeFd = fd[0];
+                                        close(fd[1]); // Close the write side of the pipe 
+                                        
+                                        int pipeStatus = pipe(fd);
+                                        
+                                        if(pipeStatus != 0)
+                                        {
+                                            fprintf(stderr, "Pipe messed up\n");
+                                            exit(1);
+                                        }
+                                        
+                                        // Now in the else case we will be connecting the pipe and making the pipe as well
+                                        if(fork() == 0)
+                                        {
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
+                                            
+                                            dup2(writeFd, 0); // Replace stdin with the read side of the pipe
+                                            close(fd[0]); // Close the read side of the new pipe
+                                            dup2(fd[1], 1); // Replace stdout with write side of the pipe
+                                            
+                                            char * cmd = *(path[i]->cmd_and_args);
+                                            
+                                            execvp(cmd, path[i]->cmd_and_args);
+                                        }
+                                    }
+                                }   
+                                
+                                sigprocmask(SIG_UNBLOCK, &mask, NULL);
+                                
+                                while(!doneReapingAll)
+                                {
+                                    // Spin
+                                    // printf("looping still\n");
+                                }
+                                
+                                
+                                // printf("child count now %d\n", childCount);
+                                
+                                // Have to check all the child's exit status before exiting with normal
+                                printf("before exiting\n");
+                                exit(0);
+                            }
+                            // Main program will continue and go on                   
+                        }
                     }
                 }
             }

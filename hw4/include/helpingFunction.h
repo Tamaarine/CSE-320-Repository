@@ -86,3 +86,40 @@ void freeAllPrinters();
  */
 void freeAllJobs();
 
+/**
+ * Returns the number of conversion that is required in the CONVERSION ** path
+ */
+int lengthOfConversionPath(CONVERSION ** path)
+{
+    if(path == NULL)
+        return 0;
+    
+    // If you are going to make a pointer to the array for poitner arithemtic, it should
+    // have the same time as the array that decays into
+    // int arr[2];, the pointer should be int * ptr because arr decays to pointer in the end
+    CONVERSION ** start = path; // This is the correct way of doing it, just make it equal to address of path
+    
+    int counter = 0;
+    // CONVERSION * ptr1 = *(path); // This is wrong because I'm getting the element of path array directly
+    //                             // Which gives you an CONVERSION ptr, and when you increment you add the size of CONVERSION struct
+    // CONVERSION * ptr2 = *(path + 1);
+    
+    
+    // Then dereference and read it in the loop condition
+    while(*(start) != NULL)
+    {
+        counter++;
+        start ++;
+    }
+    
+    // int i = 0;
+    
+    // while(path[i] != NULL)
+    // {
+    //     counter ++;
+    //     i ++;
+    // }
+    
+    return counter;
+}
+

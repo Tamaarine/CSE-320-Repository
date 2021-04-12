@@ -7,7 +7,7 @@
  * You have been warned.
  * === DO NOT MODIFY THIS FILE ===
  */
-
+ // killall -9 convert imprimer
 /*
  * Structure to represent information about a particular file type.
  */
