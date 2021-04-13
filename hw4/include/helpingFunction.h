@@ -123,3 +123,8 @@ int lengthOfConversionPath(CONVERSION ** path)
     return counter;
 }
 
+/**
+ * This function removes the \n from a string
+ */
+void removeNewline(char * str);
+

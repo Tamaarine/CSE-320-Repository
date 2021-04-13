@@ -35,7 +35,7 @@ void scanJobs();
 
 void sigchld_handler()
 {
-    // startReaping = 1;
+    startReaping = 1;
 }
 
 void readlineCallback()
@@ -57,22 +57,22 @@ void mastersigchld_handler()
     sigset_t mask;
     sigset_t prev;
     sigfillset(&mask);
-    sigprocmask(SIG_BLOCK, &mask, &prev);
     
     pid_t returnedPid;
     
     // Block singal
-    while(reapedChild > 0 && (returnedPid = waitpid(-1, NULL, WNOHANG)) > 0)
+    while((returnedPid = waitpid(-1, NULL, WNOHANG)) > 0)
     {
         // Reap 
+        sigprocmask(SIG_BLOCK, &mask, &prev);
         reapedChild --;
+        sigprocmask(SIG_SETMASK, &mask, NULL);
     }
     
     if(reapedChild == 0)
     {
         doneReapingAll = 1;
     }
-    sigprocmask(SIG_UNBLOCK, &mask, NULL);
 }
 
 int run_cli(FILE *in, FILE *out)
@@ -81,24 +81,36 @@ int run_cli(FILE *in, FILE *out)
     signal(SIGCHLD, sigchld_handler);
     sf_set_readline_signal_hook(readlineCallback);
     
-    if(in != stdin)
-    {
-        // This is for batch mode, when in is not equal to stdin
-        printf("hahaha you failed\n");
-    }
-    
     int finished = 0;
+    int suppressPrompt = 0;
+    size_t bufferSize = 64;
+    int byteRead = 0;
+    
+    if(out != stdout)
+    {
+        suppressPrompt = 1;
+    }
     
     // While the user is not done with the program we will keep looping and display this prompt
     while(!finished)
     {
-        char * userInput = sf_readline("imp> ");
+        char * userInput;
         
-        // When using input redirection the last line will be NULL, so have to put this condition here to signal EOF
-        if(userInput == NULL)
+        // Run in batch mode
+        if(in != stdin && byteRead != EOF)
         {
-            return 0;
+            userInput = (char *)malloc(bufferSize); // Hopefully 64 bytes is enough
+            byteRead = getline(&userInput, &bufferSize, in);
+            
+            if(byteRead != EOF && byteRead != 0)
+                removeNewline(userInput);
         }
+        else
+        {
+            if(!suppressPrompt)
+                userInput = sf_readline("imp> ");
+        }
+        
         
         char userInputCpy[strlen(userInput) + 1];
         strcpy(userInputCpy, userInput); // Make a copy for strtok to work on
@@ -617,8 +629,6 @@ void scanJobs()
                                     {
                                         if(fork() == 0)
                                         {
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
-                                            
                                             // Child process that will be doing the work
                                             int openedFile = open(jobPtr->filename, O_RDONLY);
                                             
@@ -627,7 +637,12 @@ void scanJobs()
                                             
                                             char * cmd = *(path[0]->cmd_and_args); // Get the command
                                             
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[0]->cmd_and_args);
+                                        }
+                                        else
+                                        {
+                                            close(printerFd);
                                         }
                                     }
                                     else if(i == 0)
@@ -641,9 +656,8 @@ void scanJobs()
                                             exit(1);
                                         }
                                         
-                                        pid_t childpid;
                                         // If it first one then we will just open the file, call pipe, redirect stdout to the pipe
-                                        if((childpid = fork()) == 0)
+                                        if(fork() == 0)
                                         {
                                             
                                             close(fd[0]); // Close the read side of the pipe since the child won't use it
@@ -668,8 +682,7 @@ void scanJobs()
                                         // Finally this is the final process, it doesn't need to make a new pipeline
                                         // just need to take in the stdout of the previous pipeline as stdin
                                         // stdout will just be the printer file descriptor
-                                        pid_t childpid;
-                                        if((childpid = fork()) == 0)
+                                        if(fork() == 0)
                                         {
                                             dup2(prevFd, 0);
                                             dup2(printerFd, 1);
@@ -679,16 +692,10 @@ void scanJobs()
                                             sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[i]->cmd_and_args);
                                         }
-                                        else
-                                        {
-                                            printf("convert pid is %d\n", childpid);
-                                        }
+                                        // No need to close anything for this case
                                     }
                                     else
                                     {
-                                        int writeFd = fd[0];
-                                        close(fd[1]); // Close the write side of the pipe 
-                                        
                                         int pipeStatus = pipe(fd);
                                         
                                         if(pipeStatus != 0)
@@ -700,19 +707,32 @@ void scanJobs()
                                         // Now in the else case we will be connecting the pipe and making the pipe as well
                                         if(fork() == 0)
                                         {
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             
-                                            dup2(writeFd, 0); // Replace stdin with the read side of the pipe
-                                            close(fd[0]); // Close the read side of the new pipe
+                                            close(fd[0]); // Close the read side of the new pipe, because it reads from prevFd
+                                            
+                                            dup2(prevFd, 0); // Replace stdin with the read side of the pipe
                                             dup2(fd[1], 1); // Replace stdout with write side of the pipe
                                             
                                             char * cmd = *(path[i]->cmd_and_args);
                                             
+                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[i]->cmd_and_args);
+                                        }
+                                        else
+                                        {       
+                                            // Master should close prevFd because it isn't using it on its own
+                                            // the forked child is using it not the master process
+                                            close(prevFd);
+                                            
+                                            // Then it should set prevFd to be fd[0] after pipe call
+                                            prevFd = fd[0];
+                                            
+                                            // Then master should close write side because it is not writing
+                                            close(fd[1]);
                                         }
                                     }
                                 }   
-                                
+                                close(printerFd); // Close the printer file descriptor because the masster process doesn't use it
                                 sigprocmask(SIG_UNBLOCK, &mask, NULL);
                                 
                                 while(!doneReapingAll)
@@ -725,8 +745,11 @@ void scanJobs()
                                 // printf("child count now %d\n", childCount);
                                 
                                 // Have to check all the child's exit status before exiting with normal
-                                printf("before exiting\n");
                                 exit(0);
+                            }
+                            else
+                            {
+                                close(printerFd);
                             }
                             // Main program will continue and go on                   
                         }
