@@ -12,6 +12,7 @@ typedef struct printer
     int status;
     FILE_TYPE * type;
     int id; // Id for the printer in the array list
+    int jobIndex; // The index of the job that this printer is working on, -1 if it is idle
 } PRINTER;
 
 // The global printer array which keeps track of all the declared printer
@@ -32,6 +33,10 @@ typedef struct job
 
 // The global job array which keeps track of all the jobs, gotta implement it like a queue i suppose
 JOB list_jobs[MAX_JOBS];
+
+// An array which maps the job index to the master process id which processes it
+pid_t jobToMasterId[MAX_JOBS];
+
 
 /**
  * Print a string that states the required argument and the actual number of argument given
@@ -128,3 +133,34 @@ int lengthOfConversionPath(CONVERSION ** path)
  */
 void removeNewline(char * str);
 
+/**
+ * Given a master process id find the job index that appears in the jobToMasterId array
+ */
+int findJobIndex(pid_t masterId)
+{
+    for(int i=0;i<MAX_JOBS;i++)
+    {
+        if(jobToMasterId[i] == masterId)
+        {
+            return i;
+        }
+    }
+    
+    return -1;
+}
+
+/**
+ * Find the printer index that is working on the job based on a job index
+ * Return -1 if it cannot find it
+ */
+int findPrinterByJobIndex(int jobIndex)
+{
+    for(int i=0;i<nextFreeIndex;i++)
+    {
+        PRINTER * printerPtr = &list_printers[i];
+        if(printerPtr->jobIndex == jobIndex)
+            return i;
+    }
+    
+    return -1;
+}

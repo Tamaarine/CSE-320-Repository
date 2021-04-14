@@ -19,6 +19,8 @@
 volatile sig_atomic_t startReaping;
 int reapedChild;
 volatile sig_atomic_t doneReapingAll;
+volatile sig_atomic_t errorChild;
+volatile int childstatus;
 
 /**
  * This function will attempt to add a given job struct into the 
@@ -42,10 +44,30 @@ void readlineCallback()
 {
     if(startReaping)
     {
+        int childstatus = 0;
+        pid_t masterProcessId;
+        
         // Start reaping the childs
-        while(wait(NULL) > 0)
+        while((masterProcessId = waitpid(-1, &childstatus, WNOHANG)) > 0)
         {
-            // printf("reaping the child\n");   
+            int jobIndex = findJobIndex(masterProcessId);
+            
+            // Then job should enter state JOB_FINISHED state
+            JOB * jobPtr = &list_jobs[jobIndex];
+            
+            jobPtr->status = JOB_FINISHED;
+            
+            sf_job_status(jobIndex, jobPtr->status);
+            sf_job_finished(jobIndex, childstatus);
+            
+            // Printer should enter PRINTER_IDLE
+            int printerIndex = findPrinterByJobIndex(jobIndex);
+            
+            PRINTER * printerPtr = &list_printers[printerIndex];
+            printerPtr->jobIndex = -1;
+            printerPtr->status = PRINTER_IDLE;
+            
+            sf_printer_status(printerPtr->printerName, printerPtr->status);
         }
         
         startReaping = 0;
@@ -58,14 +80,19 @@ void mastersigchld_handler()
     sigset_t prev;
     sigfillset(&mask);
     
-    pid_t returnedPid;
+    int childStatus;
     
     // Block singal
-    while((returnedPid = waitpid(-1, NULL, WNOHANG)) > 0)
+    while(waitpid(-1, &childStatus, WNOHANG) > 0)
     {
         // Reap 
         sigprocmask(SIG_BLOCK, &mask, &prev);
         reapedChild --;
+        
+        if(WIFEXITED(childStatus) == 0)
+        {
+            errorChild = 1;
+        }
         sigprocmask(SIG_SETMASK, &mask, NULL);
     }
     
@@ -109,6 +136,12 @@ int run_cli(FILE *in, FILE *out)
         {
             if(!suppressPrompt)
                 userInput = sf_readline("imp> ");
+            
+            // Done collecting input from stdin, hence we will just return 0
+            if(userInput == NULL)
+            {
+                return 0;
+            }
         }
         
         
@@ -345,7 +378,7 @@ int run_cli(FILE *in, FILE *out)
                     
                     if(currentJob.jobPositionTaken)
                     {
-                        fprintf(out, "JOB[%d]: type=%s, eligible=%x, file=%s\n", i, currentJob.type->name, currentJob.eligiblePrinter, currentJob.filename);
+                        fprintf(out, "JOB[%d]: type=%s, eligible=%x, file=%s status=%s\n", i, currentJob.type->name, currentJob.eligiblePrinter, currentJob.filename, job_status_names[currentJob.status]);
                         sf_job_status(i, currentJob.status);
                     }
                 }
@@ -393,14 +426,13 @@ int run_cli(FILE *in, FILE *out)
                     strcpy(mallocName, printerName);
                     
                     // Now we are going to create a new printer by adding it to the global array list_printers
-                    PRINTER toInsert = {mallocName, PRINTER_DISABLED, foundType, nextFreeIndex};
+                    PRINTER toInsert = {mallocName, PRINTER_DISABLED, foundType, nextFreeIndex, -1};
                     
                     // Insert it into the array
                     list_printers[nextFreeIndex] = toInsert;
                     nextFreeIndex++; // Increment the counter
                     
                     sf_printer_defined(toInsert.printerName, toInsert.type->name);
-                    sf_printer_status(toInsert.printerName, toInsert.status);
                     fprintf(out, "PRINTER: id=%d, name=%s, type=%s, status=%s\n"
                     , toInsert.id, toInsert.printerName, toInsert.type->name, printer_status_names[toInsert.status]);
                     sf_cmd_ok();
@@ -452,7 +484,9 @@ int run_cli(FILE *in, FILE *out)
                     
                     PRINTER * printerPtr = &list_printers[index];
                     printerPtr->status = PRINTER_IDLE;
+                    sf_printer_status(printerPtr->printerName, printerPtr->status);
                     scanJobs();
+                    sf_cmd_ok();
                     
                 }
                 else
@@ -461,10 +495,9 @@ int run_cli(FILE *in, FILE *out)
                 }
             }
         }
-        else if(strcmp(keyword, "test") == 0)
+        // Command for disabling the printer, let it finishes its job then make it disable
+        else if(strcmp(keyword, "disable") == 0)
         {
-            CONVERSION ** arr = find_conversion_path("pdf", "zed");
-            printf("first element %p\n", arr);
             
         }
         // For the command 'quit'
@@ -539,28 +572,33 @@ void scanJobs()
             // to print this file
             int mask = 1;
             
-            for(int i=0;i<nextFreeIndex;i++)
+            for(int k=0;k<nextFreeIndex;k++)
             {
-                mask <<= i;
+                mask <<= k;
                 int result = jobPtr->eligiblePrinter & mask;
                 
-                PRINTER * printerPtr = &list_printers[i];
+                PRINTER * printerPtr = &list_printers[k];
                 
                 // If the result is not 0 then that means index i of list_printers is an eligible printer that can be used
-                if(result)
+                if(result && printerPtr->status == PRINTER_IDLE)
                 {
                     // Use bin/cat to do the conversion because that's the same format
                     if(formatMatch(jobPtr->type->name, printerPtr->type->name))
                     {
                         // Printer and job are set to busy and put to work
-                                          
+                        printerPtr->status = PRINTER_BUSY;
+                        printerPtr->jobIndex = i;
+                        jobPtr->status = JOB_RUNNING;      
+                        
+                        sf_job_status(i, jobPtr->status);
+                        sf_printer_status(printerPtr->printerName, printerPtr->status);        
                         
                         pid_t id = fork();
                         
                         if(id == 0)
                         {
                             // Child process the master process
-                            // setpgid(0, 0);
+                            setpgid(0, 0);
                             
                             int printerFd = imp_connect_to_printer(printerPtr->printerName, printerPtr->type->name, PRINTER_NORMAL);
                             
@@ -582,6 +620,13 @@ void scanJobs()
                                 exit(0);
                             }
                         }
+                        else
+                        {
+                            jobToMasterId[i] = id; // Assign the master process ids
+                            
+                            char * pathArg[] = {"/bin/cat", NULL};
+                            sf_job_started(i, printerPtr->printerName, getpgid(id), pathArg);
+                        }
                         // Main program will continue. The reap will occur when child is finished
                     }
                     else
@@ -589,6 +634,10 @@ void scanJobs()
                         // Printer and job are set to busy and put to work
                         jobPtr->status = JOB_RUNNING;
                         printerPtr->status = PRINTER_BUSY;
+                        printerPtr->jobIndex = i;
+                        
+                        sf_job_status(i, jobPtr->status);
+                        sf_printer_status(printerPtr->printerName, printerPtr->status);
                         
                         // Need to check if there is a conversion path from fileType to printerType
                         // Must call find_conversion_path
@@ -605,7 +654,9 @@ void scanJobs()
                             int fd[2]; // For storing the file descriptor
                             int prevFd; // For storing the read end of the previous pipe fd value
                             
-                            if(fork() == 0) // The master process for forking all the other child for conversion pipeline
+                            int masterId;
+                            
+                            if((masterId = fork()) == 0) // The master process for forking all the other child for conversion pipeline
                             {
                                 setpgid(0, 0);
                                 signal(SIGCHLD, mastersigchld_handler); // Signal handler
@@ -745,13 +796,34 @@ void scanJobs()
                                 // printf("child count now %d\n", childCount);
                                 
                                 // Have to check all the child's exit status before exiting with normal
-                                exit(0);
+                                if(errorChild)
+                                {
+                                    exit(1);
+                                }
+                                else
+                                {
+                                    exit(0);
+                                }
                             }
                             else
                             {
                                 close(printerFd);
+                                jobToMasterId[i] = masterId;
+                                
+                                char * pathArg[conversionLength + 1];
+                                
+                                for(int i=0;i<conversionLength;i++)
+                                {
+                                    pathArg[i] = path[i]->cmd_and_args[0];
+                                }
+                                
+                                pathArg[conversionLength] = NULL;
+                                
+                                sf_job_started(i, printerPtr->printerName, getpgid(masterId), pathArg);
                             }
-                            // Main program will continue and go on                   
+                            // Main program will continue and go on   
+                            free(path); // Free the conversion path after being used
+                                            
                         }
                     }
                 }
