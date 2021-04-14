@@ -112,6 +112,15 @@ int run_cli(FILE *in, FILE *out)
     int suppressPrompt = 0;
     size_t bufferSize = 64;
     int byteRead = 0;
+    int batchMode = 0;
+    
+    if(in == NULL)
+        return -1;
+    
+    if(in != stdin)
+    {
+        batchMode = 1;
+    }
     
     if(out != stdout)
     {
@@ -124,13 +133,15 @@ int run_cli(FILE *in, FILE *out)
         char * userInput;
         
         // Run in batch mode
-        if(in != stdin && byteRead != EOF)
+        if(batchMode && byteRead != EOF)
         {
             userInput = (char *)malloc(bufferSize); // Hopefully 64 bytes is enough
             byteRead = getline(&userInput, &bufferSize, in);
             
             if(byteRead != EOF && byteRead != 0)
                 removeNewline(userInput);
+            else
+                return 0; // EOF but no quit is encountered hence return 0
         }
         else
         {
@@ -140,10 +151,9 @@ int run_cli(FILE *in, FILE *out)
             // Done collecting input from stdin, hence we will just return 0
             if(userInput == NULL)
             {
-                return 0;
+                return -1;
             }
         }
-        
         
         char userInputCpy[strlen(userInput) + 1];
         strcpy(userInputCpy, userInput); // Make a copy for strtok to work on
@@ -512,9 +522,8 @@ int run_cli(FILE *in, FILE *out)
             {
                 // Just put ok command and return that's it
                 // Don't forget to free the string that is malloc
-                free(userInput);
                 sf_cmd_ok();
-                return -1;
+                finished = 1;
             }
         }
         // Before we begin our new iteration we have to free userInput, because it
@@ -523,8 +532,13 @@ int run_cli(FILE *in, FILE *out)
         
     }
     
-    // TODO We must free all the printer names that we have used or else it will be memory leaks
-    return 0;
+    if(batchMode && finished)
+    {
+        return -1; // In batch mode and quit was read hence return -1
+    }
+    
+    // If we are here then that means a quit command was executed in interactive mode
+    return -1;
     
 }
 

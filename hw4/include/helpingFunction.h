@@ -84,12 +84,26 @@ int getPrinterIndex(char * printerName)
 /**
  * Function which will be called to free all of the printers
  */
-void freeAllPrinters();
+void freeAllPrinters()
+{
+    for(int i=0;i<nextFreeIndex;i++)
+    {
+        PRINTER * printerPtr = &list_printers[i];
+        free(printerPtr->printerName);
+    }
+}
 
 /**
  * Function which is called to free all of the jobs in the list
  */
-void freeAllJobs();
+void freeAllJobs()
+{
+    for(int i=0;i<MAX_JOBS;i++)
+    {
+        JOB * jobPtr = &list_jobs[i];
+        free(jobPtr->filename);
+    }
+}
 
 /**
  * Returns the number of conversion that is required in the CONVERSION ** path
