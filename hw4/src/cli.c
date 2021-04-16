@@ -23,6 +23,8 @@ volatile sig_atomic_t doneReapingAll;
 volatile sig_atomic_t errorChild;
 volatile int childstatus;
 
+volatile int masterChildCount = 0;
+
 /**
  * This function will attempt to add a given job struct into the 
  * It will return the index of the position of toAdd being added to the list
@@ -36,17 +38,20 @@ int addJobToList(JOB toAdd);
  */
 void scanJobs();
 
-void sigchld_handler()
+void masterSigHandler()
 {
+    sigset_t signalMask;
+    sigset_t prevMask;
+    sigfillset(&signalMask);
+    
+    sigprocmask(SIG_BLOCK, &signalMask, &prevMask);
+    
     startReaping = 1;
-}
-
-void readlineCallback()
-{
     if(startReaping)
     {
         int childstatus = 0;
         pid_t masterProcessId;
+        
         // Start reaping the childs
         while((masterProcessId = waitpid(-1, &childstatus, WNOHANG | WCONTINUED | WSTOPPED)) > 0)
         {
@@ -74,6 +79,7 @@ void readlineCallback()
                     printerPtr->status = PRINTER_IDLE;
                 
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
+                masterProcessId --;
             }
             // If the master process was stopped then we will set the job status to be
             // PAUSED and the child is not reaped
@@ -107,6 +113,8 @@ void readlineCallback()
                     printerPtr->status = PRINTER_IDLE;
                 
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
+                
+                masterChildCount--;
             }
             // However if the child exited abnormally then we will have to set
             // the job status to be JOB_ABORTED, and still be deleted
@@ -128,12 +136,19 @@ void readlineCallback()
                     printerPtr->status = PRINTER_IDLE;
                 
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
+                masterChildCount--;
             }
-            
         }
         
         startReaping = 0;
     } 
+    
+    sigprocmask(SIG_SETMASK, &prevMask, NULL);
+}
+
+void readlineCallback()
+{
+    scanJobs();
     deleteJobs();
 }
 
@@ -146,14 +161,11 @@ void mastersigchld_handler()
     int childStatus;
     pid_t childId;
     
-    setpgid(0, 0);
-    
     // Block singal
+    sigprocmask(SIG_BLOCK, &mask, &prev);
     while((childId = waitpid(-1, &childStatus, WNOHANG)) > 0)
     {
         // Reap the child
-        sigprocmask(SIG_BLOCK, &mask, &prev);
-        
         // The child did not terminate normally, errorChild set to 1 but still reaps it
         // so we decrease reapedChild
         if(WIFEXITED(childStatus) == 0)
@@ -166,9 +178,9 @@ void mastersigchld_handler()
         {
             reapedChild --;
         }
-        sigprocmask(SIG_SETMASK, &mask, NULL);
     }
     
+    sigprocmask(SIG_SETMASK, &prev, NULL);
     if(reapedChild == 0)
     {
         doneReapingAll = 1;
@@ -177,8 +189,8 @@ void mastersigchld_handler()
 
 int run_cli(FILE *in, FILE *out)
 {
-    // FIrst we install the signal handler for the SIGCHID
-    signal(SIGCHLD, sigchld_handler);
+    // First we install the signal handler for the SIGCHID
+    signal(SIGCHLD, masterSigHandler);
     sf_set_readline_signal_hook(readlineCallback);
     
     int finished = 0;
@@ -209,6 +221,13 @@ int run_cli(FILE *in, FILE *out)
         if(batchMode && byteRead != EOF)
         {
             userInput = (char *)malloc(bufferSize); // Hopefully 64 bytes is enough
+            
+            if(userInput == NULL)
+            {
+                fprintf(out, "Error with mallocing\n");
+                exit(1);
+            }
+            
             byteRead = getline(&userInput, &bufferSize, in);
             
             if(byteRead != EOF && byteRead != 0)
@@ -216,7 +235,8 @@ int run_cli(FILE *in, FILE *out)
             else
             {
                 free(userInput);    
-                return 0; // EOF but no quit is encountered hence return 0
+                break;
+                // return 0; // EOF but no quit is encountered hence return 0
             }
         }
         else
@@ -231,7 +251,8 @@ int run_cli(FILE *in, FILE *out)
             {
                 freeAllJobs();
                 freeAllPrinters();
-                return -1;
+                break;
+                // return -1;
             }
         }
         
@@ -376,6 +397,13 @@ int run_cli(FILE *in, FILE *out)
                 char * fileName = strtok(NULL, " ");
                 
                 char * mallocName = malloc(strlen(fileName) + 1);
+                
+                if(mallocName == NULL)
+                {
+                    fprintf(out, "Error with mallocing\n");
+                    exit(1);
+                }
+                
                 strcpy(mallocName, fileName);
                                 
                 // Variable to hold the pointers to the name of each printer
@@ -514,6 +542,13 @@ int run_cli(FILE *in, FILE *out)
                 else
                 {
                     char * mallocName = malloc(strlen(printerName) + 1); // Plus 1 for the null terminator
+                    
+                    if(mallocName == NULL)
+                    {
+                        fprintf(out, "Error with mallocing\n");
+                        exit(1);
+                    }
+                    
                     strcpy(mallocName, printerName);
                     
                     // Now we are going to create a new printer by adding it to the global array list_printers
@@ -576,7 +611,6 @@ int run_cli(FILE *in, FILE *out)
                     PRINTER * printerPtr = &list_printers[index];
                     printerPtr->status = PRINTER_IDLE;
                     sf_printer_status(printerPtr->printerName, printerPtr->status);
-                    scanJobs();
                     sf_cmd_ok();
                     
                 }
@@ -733,11 +767,41 @@ int run_cli(FILE *in, FILE *out)
         free(userInput);
     }
     
+    // Batchmode and a quit is read, hence we must just return -1 here
+    // no second call to run_cli. All the child must be finished before we exit
     if(batchMode && finished)
     {
+        sigset_t suspendMask;
+        sigfillset(&suspendMask);
+        sigdelset(&suspendMask, SIGCHLD);
+        
+        while(masterChildCount != 0)
+        {
+            sigsuspend(&suspendMask);
+        }
+        
         freeAllJobs();
         freeAllPrinters();
+        
         return -1; // In batch mode and quit was read hence return -1
+    }
+    // Batchmode and no quit was read, just return 0
+    else if(batchMode && !finished)
+    {
+        // A second call to run_cli with interactive mode. Don't need to free anything
+        // Don't have to wait for master process to finish because we are not quitting the program yet
+        return 0;
+    }
+    
+    sigset_t suspendMask;
+    sigemptyset(&suspendMask);
+    sigdelset(&suspendMask, SIGCHLD);
+    
+    // However if we are here then that means a quit command was executed in interactive mode
+    // we must free the printers, the jobs, and wait for all master process to exit
+    while(masterChildCount != 0)
+    {
+        sigsuspend(&suspendMask);
     }
     
     // If we are here then that means a quit command was executed in interactive mode
@@ -821,6 +885,7 @@ void scanJobs()
                         
                         pid_t id = fork();
                         jobToMasterId[i] = id;
+                        masterChildCount ++;
                         
                         if(id == 0)
                         {
@@ -877,12 +942,14 @@ void scanJobs()
                             int masterId = fork();
                             jobToMasterId[i] = masterId;
                             
+                            masterChildCount ++;
+                            
                             if(masterId == 0) // The master process for forking all the other child for conversion pipeline
                             {
+                                signal(SIGCHLD, mastersigchld_handler); // Signal handler
                                 sigprocmask(SIG_SETMASK, &sigprev, NULL);
                                 setpgid(0, 0);
 
-                                signal(SIGCHLD, mastersigchld_handler); // Signal handler
                                 reapedChild = conversionLength;
                                 
                                 // int childCount = conversionLength;
@@ -963,7 +1030,11 @@ void scanJobs()
                                             
                                             execvp(cmd, path[i]->cmd_and_args);
                                         }
-                                        // No need to close anything for this case
+                                        else
+                                        {
+                                            close(printerFd); // Master process close printerFd
+                                            close(prevFd); // Close the read side of the pipe as well because it doesn't need it
+                                        }
                                     }
                                     else
                                     {
