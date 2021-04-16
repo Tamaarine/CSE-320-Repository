@@ -223,6 +223,8 @@ int run_cli(FILE *in, FILE *out)
         {
             if(!suppressPrompt)
                 userInput = sf_readline("imp> ");
+            else
+                userInput = sf_readline(NULL);
             
             // Done collecting input from stdin, hence we will just return 0
             if(userInput == NULL)
@@ -433,7 +435,6 @@ int run_cli(FILE *in, FILE *out)
                     if(i == 0)
                     {
                         eligible = 0xffffffff;
-                        printf("None of the printer specified are valid\n");
                     }
                     
                     // Finally we can make the job struct and insert it
@@ -636,7 +637,6 @@ int run_cli(FILE *in, FILE *out)
                 if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
                 {
                     // Sents a SIGSTOP signal to the entire process group but don't update it immediately
-                    printf("jobtomaster %d\n", jobToMasterId[jobNumber]);
                     killpg(getpgid(jobToMasterId[jobNumber]), SIGSTOP);
                     sf_cmd_ok();
                 }
@@ -1004,10 +1004,13 @@ void scanJobs()
                                 }   
                                 close(printerFd); // Close the printer file descriptor because the masster process doesn't use it
                                 
+                                sigset_t suspendMask;
+                                sigfillset(&suspendMask);
+                                sigdelset(&suspendMask, SIGCHLD);
+                                
                                 while(!doneReapingAll)
                                 {
-                                    // Spin
-                                    // printf("looping still\n");
+                                    sigsuspend(&suspendMask);
                                 }
                                 
                                 
