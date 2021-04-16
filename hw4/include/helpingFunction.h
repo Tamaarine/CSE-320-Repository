@@ -149,7 +149,7 @@ int lengthOfConversionPath(CONVERSION ** path)
 /**
  * This function removes the \n from a string
  */
-void removeNewline(char * str);
+void removeNewline(char * str, int byteRead);
 
 /**
  * Given a master process id find the job index that appears in the jobToMasterId array
@@ -176,7 +176,8 @@ int findPrinterByJobIndex(int jobIndex)
     for(int i=0;i<nextFreeIndex;i++)
     {
         PRINTER * printerPtr = &list_printers[i];
-        if(printerPtr->jobIndex == jobIndex)
+
+        if(printerPtr->jobIndex != -1 && printerPtr->jobIndex == jobIndex)
             return i;
     }
     
@@ -202,3 +203,8 @@ void deleteJobs()
         }
     }
 }
+
+/**
+ * A function that turns str into an integer between range 0 and 63 inclusive
+ */
+int string2Integer(char * str);

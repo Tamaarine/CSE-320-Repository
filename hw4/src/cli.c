@@ -56,7 +56,6 @@ void masterSigHandler()
         while((masterProcessId = waitpid(-1, &childstatus, WNOHANG | WCONTINUED | WSTOPPED)) > 0)
         {
             int jobIndex = findJobIndex(masterProcessId);
-            
             // Then job should enter state JOB_FINISHED state
             JOB * jobPtr = &list_jobs[jobIndex];
             
@@ -77,7 +76,7 @@ void masterSigHandler()
                 
                 if(printerPtr->status != PRINTER_DISABLED)
                     printerPtr->status = PRINTER_IDLE;
-                
+                    
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
                 masterProcessId --;
             }
@@ -113,8 +112,8 @@ void masterSigHandler()
                     printerPtr->status = PRINTER_IDLE;
                 
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
-                
                 masterChildCount--;
+                
             }
             // However if the child exited abnormally then we will have to set
             // the job status to be JOB_ABORTED, and still be deleted
@@ -231,7 +230,9 @@ int run_cli(FILE *in, FILE *out)
             byteRead = getline(&userInput, &bufferSize, in);
             
             if(byteRead != EOF && byteRead != 0)
-                removeNewline(userInput);
+            {
+                removeNewline(userInput, byteRead);
+            }
             else
             {
                 free(userInput);    
@@ -249,8 +250,6 @@ int run_cli(FILE *in, FILE *out)
             // Done collecting input from stdin, hence we will just return 0
             if(userInput == NULL)
             {
-                freeAllJobs();
-                freeAllPrinters();
                 break;
                 // return -1;
             }
@@ -664,19 +663,26 @@ int run_cli(FILE *in, FILE *out)
                 strtok(userInputCpy, " "); // Skip keyword again
                 
                 char * stringJobNumber = strtok(NULL, " ");
-                int jobNumber = atoi(stringJobNumber);
+                int jobNumber = string2Integer(stringJobNumber);
                 
-                JOB * jobPtr = &list_jobs[jobNumber];
-                
-                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                if(jobNumber == -1)
                 {
-                    // Sents a SIGSTOP signal to the entire process group but don't update it immediately
-                    killpg(getpgid(jobToMasterId[jobNumber]), SIGSTOP);
-                    sf_cmd_ok();
+                    sf_cmd_error("pause (invalid position of job given)");
                 }
                 else
                 {
-                    sf_cmd_error("pause (no job or job is not currently running");
+                    JOB * jobPtr = &list_jobs[jobNumber];
+                    
+                    if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                    {
+                        // Sents a SIGSTOP signal to the entire process group but don't update it immediately
+                        killpg(getpgid(jobToMasterId[jobNumber]), SIGSTOP);
+                        sf_cmd_ok();
+                    }
+                    else
+                    {
+                        sf_cmd_error("pause (no job or job is not currently running");
+                    }
                 }
             }
         }
@@ -693,19 +699,26 @@ int run_cli(FILE *in, FILE *out)
                 strtok(userInputCpy, " "); // Skip keyword again
                 
                 char * stringJobNumber = strtok(NULL, " ");
-                int jobNumber = atoi(stringJobNumber);
+                int jobNumber = string2Integer(stringJobNumber);
                 
-                JOB * jobPtr = &list_jobs[jobNumber];
-                
-                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
+                if(jobNumber == -1)
                 {
-                    // Sents a SIGCONT signal to the entire process group but don't update it immediately
-                    killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
-                    sf_cmd_ok();
+                    sf_cmd_error("resume (invalid position of job)");
                 }
                 else
                 {
-                    sf_cmd_error("resume (no job or job is not currently paused)");
+                    JOB * jobPtr = &list_jobs[jobNumber];
+                    
+                    if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
+                    {
+                        // Sents a SIGCONT signal to the entire process group but don't update it immediately
+                        killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
+                        sf_cmd_ok();
+                    }
+                    else
+                    {
+                        sf_cmd_error("resume (no job or job is not currently paused)");
+                    }
                 }
             }
         }
@@ -722,27 +735,34 @@ int run_cli(FILE *in, FILE *out)
                 strtok(userInputCpy, " "); // Skip keyword again
                 
                 char * stringJobNumber = strtok(NULL, " ");
-                int jobNumber = atoi(stringJobNumber);
+                int jobNumber = string2Integer(stringJobNumber);
                 
-                JOB * jobPtr = &list_jobs[jobNumber];
-                
-                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                if(jobNumber == -1)
                 {
-                    // Sent the SIGTERM signal to the job
-                    killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
-                    sf_cmd_ok();
-                }
-                else if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
-                {
-                    // If the paused, then after sending SIGTERM it should be sent SIGCONT to be
-                    // able to respond to the SIGTERM signal
-                    killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
-                    killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
-                    sf_cmd_ok();
+                    sf_cmd_error("cancel (invalid position of job)");
                 }
                 else
                 {
-                    sf_cmd_error("cancel (no job)");
+                    JOB * jobPtr = &list_jobs[jobNumber];
+                    
+                    if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                    {
+                        // Sent the SIGTERM signal to the job
+                        killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
+                        sf_cmd_ok();
+                    }
+                    else if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
+                    {
+                        // If the paused, then after sending SIGTERM it should be sent SIGCONT to be
+                        // able to respond to the SIGTERM signal
+                        killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
+                        killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
+                        sf_cmd_ok();
+                    }
+                    else
+                    {
+                        sf_cmd_error("cancel (no job)");
+                    }
                 }
             }
         }
@@ -818,10 +838,10 @@ int addJobToList(JOB toAdd)
     for(int i=0;i<MAX_JOBS;i++)
     {
         // Gets a copy of the i-th job
-        JOB currentJob = list_jobs[i];
+        JOB * currentJob = &list_jobs[i];
         
         // If the job position is not taken then we will insert toAdd to that position
-        if(currentJob.jobPositionTaken == 0)
+        if(currentJob->jobPositionTaken == 0 || currentJob->status == JOB_DELETED)
         {
             list_jobs[i] = toAdd;
             
@@ -870,7 +890,7 @@ void scanJobs()
                 PRINTER * printerPtr = &list_printers[k];
                 
                 // If the result is not 0 then that means index i of list_printers is an eligible printer that can be used
-                if(result && printerPtr->status == PRINTER_IDLE)
+                if(result && printerPtr->status == PRINTER_IDLE && printerPtr->jobIndex == -1)
                 {
                     // Use bin/cat to do the conversion because that's the same format
                     if(formatMatch(jobPtr->type->name, printerPtr->type->name))
@@ -920,6 +940,8 @@ void scanJobs()
                             char * pathArg[] = {"/bin/cat", NULL};
                             sf_job_started(i, printerPtr->printerName, getpgid(id), pathArg);
                         }
+                        
+                        break; // Break to go to next job
                         // Main program will continue. The reap will occur when child is finished
                     }
                     else
@@ -939,10 +961,17 @@ void scanJobs()
                             int fd[2]; // For storing the file descriptor
                             int prevFd; // For storing the read end of the previous pipe fd value
                             
-                            int masterId = fork();
-                            jobToMasterId[i] = masterId;
+                            jobPtr->status = JOB_RUNNING;
+                            printerPtr->status = PRINTER_BUSY;
+                            printerPtr->jobIndex = i;
+                            
+                            sf_job_status(i, jobPtr->status);
+                            sf_printer_status(printerPtr->printerName, printerPtr->status);
                             
                             masterChildCount ++;
+                            
+                            int masterId = fork();
+                            jobToMasterId[i] = masterId;
                             
                             if(masterId == 0) // The master process for forking all the other child for conversion pipeline
                             {
@@ -1101,12 +1130,6 @@ void scanJobs()
                             {
                                 setpgid(masterId, masterId);
                                 // Printer and job are set to busy and put to work
-                                jobPtr->status = JOB_RUNNING;
-                                printerPtr->status = PRINTER_BUSY;
-                                printerPtr->jobIndex = i;
-                                
-                                sf_job_status(i, jobPtr->status);
-                                sf_printer_status(printerPtr->printerName, printerPtr->status);
                                 
                                 close(printerFd);
                                 
@@ -1123,14 +1146,15 @@ void scanJobs()
                             }
                             // Main program will continue and go on   
                             free(path); // Free the conversion path after being used
-                                            
+                              
+                            break; // Break  to start next available job              
                         }
                     }
                 }
             }
         }
+                                
     }
     
     sigprocmask(SIG_SETMASK, &sigprev, NULL);
-    
 }
