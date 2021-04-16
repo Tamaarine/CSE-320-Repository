@@ -1,4 +1,5 @@
 #include "imprimer.h"
+#include <time.h>
 
 // Index for the next free position
 extern int nextFreeIndex;
@@ -29,6 +30,7 @@ typedef struct job
     int status;
     unsigned int eligiblePrinter; // 32 bitmap that will tell which printer is elibile to be used to print this job. Read right to left
     char jobPositionTaken; // A 1 or 0 to indicate if this job in the list is occupied already or not
+    time_t wait4TenSecond; // The current time when this job's status is set to JOB_FINISHED
 } JOB;
 
 // The global job array which keeps track of all the jobs, gotta implement it like a queue i suppose
@@ -101,7 +103,9 @@ void freeAllJobs()
     for(int i=0;i<MAX_JOBS;i++)
     {
         JOB * jobPtr = &list_jobs[i];
-        free(jobPtr->filename);
+        
+        if(jobPtr->jobPositionTaken == 1)
+            free(jobPtr->filename);
     }
 }
 
@@ -177,4 +181,24 @@ int findPrinterByJobIndex(int jobIndex)
     }
     
     return -1;
+}
+
+/**
+ * This function will look through the job list to delete all the jobs that is FINISHED
+ * and 10 seconds have elapsed since wait4TenSecond
+ */
+void deleteJobs()
+{
+    for(int i=0;i<MAX_JOBS;i++)
+    {
+        JOB * jobPtr = &list_jobs[i];
+        
+        // If the job is finished and 10 seconds have passed already then update the status
+        if((jobPtr->status == JOB_FINISHED || jobPtr->status == JOB_ABORTED) && time(NULL) >= jobPtr->wait4TenSecond + 10)
+        {
+            jobPtr->jobPositionTaken = 0;
+            jobPtr->status = JOB_DELETED;
+            sf_job_deleted(i);
+        }
+    }
 }

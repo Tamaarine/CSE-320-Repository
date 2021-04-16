@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <time.h>
 
 volatile sig_atomic_t startReaping;
 int reapedChild;
@@ -46,32 +47,94 @@ void readlineCallback()
     {
         int childstatus = 0;
         pid_t masterProcessId;
-        
         // Start reaping the childs
-        while((masterProcessId = waitpid(-1, &childstatus, WNOHANG)) > 0)
+        while((masterProcessId = waitpid(-1, &childstatus, WNOHANG | WCONTINUED | WSTOPPED)) > 0)
         {
             int jobIndex = findJobIndex(masterProcessId);
             
             // Then job should enter state JOB_FINISHED state
             JOB * jobPtr = &list_jobs[jobIndex];
             
-            jobPtr->status = JOB_FINISHED;
+            // If the child was signal by SIGTERM to stop
+            if(WIFSIGNALED(childstatus) != 0)
+            {
+                jobPtr->status = JOB_ABORTED;
+                jobPtr->wait4TenSecond = time(NULL);
+                
+                sf_job_status(jobIndex, jobPtr->status);
+                sf_job_aborted(jobIndex, childstatus);
+                
+                // Printer should enter PRINTER_IDLE, or stays at PRINTER_DISABLED if it was disabled
+                int printerIndex = findPrinterByJobIndex(jobIndex);
+                
+                PRINTER * printerPtr = &list_printers[printerIndex];
+                printerPtr->jobIndex = -1;
+                
+                if(printerPtr->status != PRINTER_DISABLED)
+                    printerPtr->status = PRINTER_IDLE;
+                
+                sf_printer_status(printerPtr->printerName, printerPtr->status);
+            }
+            // If the master process was stopped then we will set the job status to be
+            // PAUSED and the child is not reaped
+            else if(WIFSTOPPED(childstatus) != 0)
+            {
+                jobPtr->status = JOB_PAUSED;
+                sf_job_status(jobIndex, jobPtr->status);
+            }
+            else if(WIFCONTINUED(childstatus) != 0)
+            {
+                jobPtr->status = JOB_RUNNING;
+                sf_job_status(jobIndex, jobPtr->status);
+            }
+            // The master process exited normally hence we can
+            // set the job status to be finished, the wait 10 second and the printer status
+            else if(WIFEXITED(childstatus) != 0)
+            {
+                jobPtr->status = JOB_FINISHED;
+                jobPtr->wait4TenSecond = time(NULL);
+                
+                sf_job_status(jobIndex, jobPtr->status);
+                sf_job_finished(jobIndex, childstatus);
+                
+                // Printer should enter PRINTER_IDLE, or stays at PRINTER_DISABLED if it was disabled
+                int printerIndex = findPrinterByJobIndex(jobIndex);
+                
+                PRINTER * printerPtr = &list_printers[printerIndex];
+                printerPtr->jobIndex = -1;
+                
+                if(printerPtr->status != PRINTER_DISABLED)
+                    printerPtr->status = PRINTER_IDLE;
+                
+                sf_printer_status(printerPtr->printerName, printerPtr->status);
+            }
+            // However if the child exited abnormally then we will have to set
+            // the job status to be JOB_ABORTED, and still be deleted
+            else if(WIFEXITED(childstatus) == 0)
+            {
+                jobPtr->status = JOB_ABORTED;
+                jobPtr->wait4TenSecond = time(NULL);
+                
+                sf_job_status(jobIndex, jobPtr->status);
+                sf_job_aborted(jobIndex, childstatus);
+                
+                // Printer should enter PRINTER_IDLE, or stays at PRINTER_DISABLED if it was disabled
+                int printerIndex = findPrinterByJobIndex(jobIndex);
+                
+                PRINTER * printerPtr = &list_printers[printerIndex];
+                printerPtr->jobIndex = -1;
+                
+                if(printerPtr->status != PRINTER_DISABLED)
+                    printerPtr->status = PRINTER_IDLE;
+                
+                sf_printer_status(printerPtr->printerName, printerPtr->status);
+            }
             
-            sf_job_status(jobIndex, jobPtr->status);
-            sf_job_finished(jobIndex, childstatus);
-            
-            // Printer should enter PRINTER_IDLE
-            int printerIndex = findPrinterByJobIndex(jobIndex);
-            
-            PRINTER * printerPtr = &list_printers[printerIndex];
-            printerPtr->jobIndex = -1;
-            printerPtr->status = PRINTER_IDLE;
-            
-            sf_printer_status(printerPtr->printerName, printerPtr->status);
         }
         
         startReaping = 0;
     } 
+    deleteJobs();
 }
 
 void mastersigchld_handler()
@@ -81,17 +144,27 @@ void mastersigchld_handler()
     sigfillset(&mask);
     
     int childStatus;
+    pid_t childId;
+    
+    setpgid(0, 0);
     
     // Block singal
-    while(waitpid(-1, &childStatus, WNOHANG) > 0)
+    while((childId = waitpid(-1, &childStatus, WNOHANG)) > 0)
     {
-        // Reap 
+        // Reap the child
         sigprocmask(SIG_BLOCK, &mask, &prev);
-        reapedChild --;
         
+        // The child did not terminate normally, errorChild set to 1 but still reaps it
+        // so we decrease reapedChild
         if(WIFEXITED(childStatus) == 0)
         {
             errorChild = 1;
+            reapedChild --;
+        }
+        // The child did terminate normally, reap and decrease reapedChild
+        else if(WIFEXITED(childstatus) != 0)
+        {
+            reapedChild --;
         }
         sigprocmask(SIG_SETMASK, &mask, NULL);
     }
@@ -141,7 +214,10 @@ int run_cli(FILE *in, FILE *out)
             if(byteRead != EOF && byteRead != 0)
                 removeNewline(userInput);
             else
+            {
+                free(userInput);    
                 return 0; // EOF but no quit is encountered hence return 0
+            }
         }
         else
         {
@@ -151,6 +227,8 @@ int run_cli(FILE *in, FILE *out)
             // Done collecting input from stdin, hence we will just return 0
             if(userInput == NULL)
             {
+                freeAllJobs();
+                freeAllPrinters();
                 return -1;
             }
         }
@@ -316,6 +394,7 @@ int run_cli(FILE *in, FILE *out)
                     toAdd.jobPositionTaken = 1;
                     toAdd.status = JOB_CREATED;
                     toAdd.filename = mallocName;
+                    toAdd.wait4TenSecond = -1; // Not finshed yet so the time is -1
                     
                     int index = addJobToList(toAdd);
                     sf_job_created(index, fileName, toAddType->name);
@@ -364,6 +443,7 @@ int run_cli(FILE *in, FILE *out)
                     toAdd.jobPositionTaken = 1;
                     toAdd.status = JOB_CREATED;
                     toAdd.type = toAddType;
+                    toAdd.wait4TenSecond = -1;
                     
                     int index = addJobToList(toAdd);
                     sf_job_created(index, fileName, toAddType->name);
@@ -508,7 +588,129 @@ int run_cli(FILE *in, FILE *out)
         // Command for disabling the printer, let it finishes its job then make it disable
         else if(strcmp(keyword, "disable") == 0)
         {
-            
+            if(numArgs != 1)
+            {
+                printRequiredArgs(0, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                strcpy(userInputCpy, userInput);
+                strtok(userInputCpy, " "); // Skip keyword again
+                
+                char * printerName = strtok(NULL, " ");
+                
+                if(printerExist(printerName))
+                {
+                    // Set the status of the printer to disable
+                    int index = getPrinterIndex(printerName);
+                    
+                    PRINTER * printerPtr = &list_printers[index];
+                    printerPtr->status = PRINTER_DISABLED;
+                    sf_printer_status(printerPtr->printerName, printerPtr->status);
+                    sf_cmd_ok();
+                }
+                else
+                {
+                    sf_cmd_error("disable (no printer)");
+                }
+            }
+        }
+        else if(strcmp(keyword, "pause") == 0)
+        {
+            if(numArgs != 1)
+            {
+                printRequiredArgs(0, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                strcpy(userInputCpy, userInput);
+                strtok(userInputCpy, " "); // Skip keyword again
+                
+                char * stringJobNumber = strtok(NULL, " ");
+                int jobNumber = atoi(stringJobNumber);
+                
+                JOB * jobPtr = &list_jobs[jobNumber];
+                
+                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                {
+                    // Sents a SIGSTOP signal to the entire process group but don't update it immediately
+                    printf("jobtomaster %d\n", jobToMasterId[jobNumber]);
+                    killpg(getpgid(jobToMasterId[jobNumber]), SIGSTOP);
+                    sf_cmd_ok();
+                }
+                else
+                {
+                    sf_cmd_error("pause (no job or job is not currently running");
+                }
+            }
+        }
+        else if(strcmp(keyword, "resume") == 0)
+        {
+            if(numArgs != 1)
+            {
+                printRequiredArgs(0, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                strcpy(userInputCpy, userInput);
+                strtok(userInputCpy, " "); // Skip keyword again
+                
+                char * stringJobNumber = strtok(NULL, " ");
+                int jobNumber = atoi(stringJobNumber);
+                
+                JOB * jobPtr = &list_jobs[jobNumber];
+                
+                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
+                {
+                    // Sents a SIGCONT signal to the entire process group but don't update it immediately
+                    killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
+                    sf_cmd_ok();
+                }
+                else
+                {
+                    sf_cmd_error("resume (no job or job is not currently paused)");
+                }
+            }
+        }
+        else if(strcmp(keyword, "cancel") == 0)
+        {
+            if(numArgs != 1)
+            {
+                printRequiredArgs(0, numArgs, keyword, out);
+                sf_cmd_error("arg count");
+            }
+            else
+            {
+                strcpy(userInputCpy, userInput);
+                strtok(userInputCpy, " "); // Skip keyword again
+                
+                char * stringJobNumber = strtok(NULL, " ");
+                int jobNumber = atoi(stringJobNumber);
+                
+                JOB * jobPtr = &list_jobs[jobNumber];
+                
+                if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_RUNNING)
+                {
+                    // Sent the SIGTERM signal to the job
+                    killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
+                    sf_cmd_ok();
+                }
+                else if(jobPtr->jobPositionTaken == 1 && jobPtr->status == JOB_PAUSED)
+                {
+                    // If the paused, then after sending SIGTERM it should be sent SIGCONT to be
+                    // able to respond to the SIGTERM signal
+                    killpg(getpgid(jobToMasterId[jobNumber]), SIGTERM);
+                    killpg(getpgid(jobToMasterId[jobNumber]), SIGCONT);
+                    sf_cmd_ok();
+                }
+                else
+                {
+                    sf_cmd_error("cancel (no job)");
+                }
+            }
         }
         // For the command 'quit'
         else if(strcmp(keyword, "quit") == 0)
@@ -522,22 +724,26 @@ int run_cli(FILE *in, FILE *out)
             {
                 // Just put ok command and return that's it
                 // Don't forget to free the string that is malloc
-                sf_cmd_ok();
                 finished = 1;
+                sf_cmd_ok();
             }
         }
         // Before we begin our new iteration we have to free userInput, because it
         // malloc a new string dynamically every call to sf_readline
         free(userInput);
-        
     }
     
     if(batchMode && finished)
     {
+        freeAllJobs();
+        freeAllPrinters();
         return -1; // In batch mode and quit was read hence return -1
     }
     
     // If we are here then that means a quit command was executed in interactive mode
+    // That means we can free the printers and the jobs we did
+    freeAllJobs();
+    freeAllPrinters();
     return -1;
     
 }
@@ -576,6 +782,12 @@ int formatMatch(char * printerType, char * fileType)
 
 void scanJobs()
 {
+    sigset_t sigmask;
+    sigset_t sigprev;
+    sigfillset(&sigmask);
+    
+    sigprocmask(SIG_BLOCK, &sigmask, &sigprev);
+    
     for(int i=0;i<MAX_JOBS;i++)
     {
         JOB * jobPtr = &list_jobs[i];
@@ -608,9 +820,12 @@ void scanJobs()
                         sf_printer_status(printerPtr->printerName, printerPtr->status);        
                         
                         pid_t id = fork();
+                        jobToMasterId[i] = id;
                         
                         if(id == 0)
                         {
+                            sigprocmask(SIG_SETMASK, &sigprev, NULL);
+                            
                             // Child process the master process
                             setpgid(0, 0);
                             
@@ -636,8 +851,7 @@ void scanJobs()
                         }
                         else
                         {
-                            jobToMasterId[i] = id; // Assign the master process ids
-                            
+                            setpgid(id, id);
                             char * pathArg[] = {"/bin/cat", NULL};
                             sf_job_started(i, printerPtr->printerName, getpgid(id), pathArg);
                         }
@@ -645,14 +859,6 @@ void scanJobs()
                     }
                     else
                     {
-                        // Printer and job are set to busy and put to work
-                        jobPtr->status = JOB_RUNNING;
-                        printerPtr->status = PRINTER_BUSY;
-                        printerPtr->jobIndex = i;
-                        
-                        sf_job_status(i, jobPtr->status);
-                        sf_printer_status(printerPtr->printerName, printerPtr->status);
-                        
                         // Need to check if there is a conversion path from fileType to printerType
                         // Must call find_conversion_path
                         CONVERSION ** path = find_conversion_path(jobPtr->type->name, printerPtr->type->name);
@@ -668,22 +874,25 @@ void scanJobs()
                             int fd[2]; // For storing the file descriptor
                             int prevFd; // For storing the read end of the previous pipe fd value
                             
-                            int masterId;
+                            int masterId = fork();
+                            jobToMasterId[i] = masterId;
                             
-                            if((masterId = fork()) == 0) // The master process for forking all the other child for conversion pipeline
+                            if(masterId == 0) // The master process for forking all the other child for conversion pipeline
                             {
+                                sigprocmask(SIG_SETMASK, &sigprev, NULL);
                                 setpgid(0, 0);
+
                                 signal(SIGCHLD, mastersigchld_handler); // Signal handler
                                 reapedChild = conversionLength;
                                 
                                 // int childCount = conversionLength;
                                 // int childStatus[conversionLength];
                                 
-                                sigset_t mask;
-                                sigset_t prev;
-                                sigfillset(&mask);
+                                // sigset_t mask;
+                                // sigset_t prev;
+                                // sigfillset(&mask);
                                 
-                                sigprocmask(SIG_BLOCK, &mask, &prev);
+                                // sigprocmask(SIG_BLOCK, &mask, &prev);
                                 
                                 // Then we must set up the pipeline for it if it is 2 or more conversion required
                                 // Need a for loop to go through each CONVERSION
@@ -702,7 +911,6 @@ void scanJobs()
                                             
                                             char * cmd = *(path[0]->cmd_and_args); // Get the command
                                             
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[0]->cmd_and_args);
                                         }
                                         else
@@ -733,7 +941,6 @@ void scanJobs()
                                             
                                             char * cmd = *(path[i]->cmd_and_args);
                                             
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[i]->cmd_and_args);
                                         }
                                         else
@@ -754,7 +961,6 @@ void scanJobs()
                                             
                                             char * cmd = *(path[i]->cmd_and_args);
                                             
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[i]->cmd_and_args);
                                         }
                                         // No need to close anything for this case
@@ -780,7 +986,6 @@ void scanJobs()
                                             
                                             char * cmd = *(path[i]->cmd_and_args);
                                             
-                                            sigprocmask(SIG_SETMASK, &prev, NULL);
                                             execvp(cmd, path[i]->cmd_and_args);
                                         }
                                         else
@@ -798,7 +1003,6 @@ void scanJobs()
                                     }
                                 }   
                                 close(printerFd); // Close the printer file descriptor because the masster process doesn't use it
-                                sigprocmask(SIG_UNBLOCK, &mask, NULL);
                                 
                                 while(!doneReapingAll)
                                 {
@@ -821,8 +1025,16 @@ void scanJobs()
                             }
                             else
                             {
+                                setpgid(masterId, masterId);
+                                // Printer and job are set to busy and put to work
+                                jobPtr->status = JOB_RUNNING;
+                                printerPtr->status = PRINTER_BUSY;
+                                printerPtr->jobIndex = i;
+                                
+                                sf_job_status(i, jobPtr->status);
+                                sf_printer_status(printerPtr->printerName, printerPtr->status);
+                                
                                 close(printerFd);
-                                jobToMasterId[i] = masterId;
                                 
                                 char * pathArg[conversionLength + 1];
                                 
@@ -844,4 +1056,7 @@ void scanJobs()
             }
         }
     }
+    
+    sigprocmask(SIG_SETMASK, &sigprev, NULL);
+    
 }

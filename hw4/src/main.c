@@ -58,7 +58,6 @@ int main(int argc, char *argv[])
 	fflush(out);
     }
     if(!quit) {
-		printf("second call\n");
 	run_cli(stdin, out);
 	fflush(out);
     }
