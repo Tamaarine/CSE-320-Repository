@@ -78,7 +78,7 @@ void masterSigHandler()
                     printerPtr->status = PRINTER_IDLE;
                     
                 sf_printer_status(printerPtr->printerName, printerPtr->status);
-                masterProcessId --;
+                masterChildCount --;
             }
             // If the master process was stopped then we will set the job status to be
             // PAUSED and the child is not reaped
@@ -782,6 +782,13 @@ int run_cli(FILE *in, FILE *out)
                 sf_cmd_ok();
             }
         }
+        
+        if(batchMode)
+        {
+            scanJobs();
+            deleteJobs();
+        }
+        
         // Before we begin our new iteration we have to free userInput, because it
         // malloc a new string dynamically every call to sf_readline
         free(userInput);
@@ -920,6 +927,11 @@ void scanJobs()
                             {
                                 int openedFileFd = open(jobPtr->filename, O_RDONLY);
                                 
+                                if(openedFileFd == -1)
+                                {
+                                    exit(1);
+                                }
+                                
                                 dup2(openedFileFd, 0);
                                 dup2(printerFd, 1);
                                 
@@ -1031,6 +1043,11 @@ void scanJobs()
                                             
                                             close(fd[0]); // Close the read side of the pipe since the child won't use it
                                             int openedFile = open(jobPtr->filename, O_RDONLY);
+                                            
+                                            if(openedFile == -1)
+                                            {
+                                                exit(1); // If the file don't exist exit with error
+                                            }
                                             
                                             dup2(openedFile, 0); // Replace stdin for the first process because it takes in the file
                                             dup2(fd[1], 1); // Replace stdout with the write side of the pipe
