@@ -6,3 +6,6 @@ spool/
 *~
 *.out
 *.bak
+custom
+test_output
+.vscode
