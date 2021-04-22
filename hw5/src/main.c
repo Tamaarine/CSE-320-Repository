@@ -13,7 +13,20 @@
 #include "server.h"
 #include "globals.h"
 
+#include <unistd.h>
+#include <netdb.h>
+
 static void terminate(int);
+
+// My own functions
+int strToInteger(char * strNum);
+int open_listenfd(char * port);
+
+// SIGHUP Handler
+void sigup_handler(int sig, siginfo_t *si, void *unused)
+{
+    terminate(EXIT_SUCCESS);
+}
 
 /*
  * "Charla" chat server.
@@ -24,7 +37,28 @@ int main(int argc, char* argv[]){
     // Option processing should be performed here.
     // Option '-p <port>' is required in order to specify the port number
     // on which the server should listen.
-
+    int opt;
+    char * portNumber;
+    
+    while(1)
+    {
+        opt = getopt(argc, argv, "p:");
+        switch(opt)
+        {
+            case 'p':
+                portNumber = optarg;
+                debug("Port number is pulled %s", portNumber);
+                break;
+        }
+        
+        // Break out of the while loop if everything is done parsing
+        if(opt == -1)
+        {
+            break;
+        }
+    }
+    
+    printf("port is -%s-\n", portNumber);
     // Perform required initializations of the client_registry and
     // player_registry.
     user_registry = ureg_init();
@@ -32,14 +66,51 @@ int main(int argc, char* argv[]){
 
     // TODO: Set up the server socket and enter a loop to accept connections
     // on this socket.  For each connection, a thread should be started to
-    // run function charla_client_service().  In addition, you should install
+    // run function charla_client_service().  
+    int listenfd = open_listenfd(portNumber);
+    
+    // In addition, you should install
     // a SIGHUP handler, so that receipt of SIGHUP will perform a clean
     // shutdown of the server.
+    
+    // Struct that is used for sigaction
+    struct sigaction sa;
+    
+    sa.sa_flags = SA_SIGINFO;
+    sa.sa_sigaction = &sigup_handler;
+    sigemptyset(&sa.sa_mask);
+    
+    // Setting up the SIGHUP handler
+    sigaction(SIGHUP, &sa, NULL);
+    
+    pthread_t thread_id;
+    
+    // Then we will enter a loop which accepts connections
+    while(1)
+    {
+        // Since we are going to be passing this to the thread, we need to malloc it
+        int * mallocConnFd = (int *)malloc(sizeof(int));
+        
+        // We don't care about the address of the connected clients
+        *(mallocConnFd) = accept(listenfd, NULL, NULL); 
+        
+        // Client connection failed, free and move on
+        if(*(mallocConnFd) == -1)
+        {
+            free(mallocConnFd);
+        }
+        // Connection success we will spawn a new thread that will call 
+        else
+        {
+            printf("accepted a connection\n");
+            pthread_create(&thread_id, NULL, chla_client_service, mallocConnFd);
+        }
+    }
 
-    fprintf(stderr, "You have to finish implementing main() "
-	    "before the server will function.\n");
+    // fprintf(stderr, "You have to finish implementing main() "
+	//     "before the server will function.\n");
 
-    terminate(EXIT_FAILURE);
+    // terminate(EXIT_FAILURE);
 }
 
 /*
@@ -56,4 +127,102 @@ static void terminate(int status) {
 
     debug("%ld: Server terminating", pthread_self());
     exit(status);
+}
+
+/**
+ * Returns 10^times
+ */
+int multiplier(int times)
+{
+    int output = 1;
+    for(int i=0;i<times;i++)
+    {
+        output *= 10;
+    }
+    return output;
+}
+
+/**
+ * This function will try to convert a given String into an integer,
+ * if the given String have letters then it will just return -1
+ */
+int strToInteger(char * strNum)
+{
+    int sum = 0;
+    char * ptr = strNum;
+    int length = strlen(strNum);
+    
+    for(; *ptr; ptr++)
+    {
+        if(*(ptr) < '0' || *(ptr) > '9')
+        {
+            return -1;
+        }
+        // Here means that it is a digit
+        else
+        {
+            sum += multiplier(length -1) * (*(ptr) - '0');
+            length --;
+        }
+    }
+    return sum;
+}
+
+/**
+ * On succuess it will return a listening socket on the specified port
+ * It is reentrant and portocol-independent. But for the purpose of this homework
+ * I don't really think it needs to be portocol-independent, but oh well
+ */
+int open_listenfd(char * port)
+{
+    // Structs that we need for doing this function
+    struct addrinfo hints, *listp, *p;
+    int listenfd, rc, optval = 1;
+    
+    // We zero out the struct hints first
+    memset(&hints, 0, sizeof(struct addrinfo)); 
+    hints.ai_socktype = SOCK_STREAM;            // Will accept any connection
+    hints.ai_flags = AI_PASSIVE | AI_ADDRCONFIG;// On any IP address
+    hints.ai_flags |= AI_NUMERICSERV;           // Use port number
+    if((rc = getaddrinfo(NULL, port, &hints, &listp)) != 0)
+    {
+        debug("getaddrinfo failed (port %s): %s\n", port, gai_strerror(rc));
+        return -2;
+    }
+    
+    // If the DNS resolved was successful then we will walk the list to see one that we can bind to
+    for(p=listp;p;p=p->ai_next)
+    {
+        if((listenfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
+        {
+            continue; // This socket failed we will try the next one
+        }
+        
+        // Removes the address already in use error from bind
+        setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void *)&optval, sizeof(int));
+        
+        // Then we bind the descriptor to the address
+        if(bind(listenfd, p->ai_addr, p->ai_addrlen) == 0)
+            break; // It is successful
+        if(close(listenfd) < 0)
+        {
+            debug("open_listenfd close failed: %s\n", strerror(errno));
+            return -1;
+        }
+    }
+    
+    // Then we do some clean ups
+    freeaddrinfo(listp);
+    if(!p)
+    {
+        return -1;
+    }
+    
+    // Make a listening socket passive to be ready to accept connection requests
+    if(listen(listenfd, 1024) < 0)
+    {
+        close(listenfd);
+        return -1;
+    }
+    return listenfd;
 }
