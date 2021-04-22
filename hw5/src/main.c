@@ -15,6 +15,7 @@
 
 #include <unistd.h>
 #include <netdb.h>
+#include <fcntl.h>
 
 static void terminate(int);
 
@@ -25,6 +26,7 @@ int open_listenfd(char * port);
 // SIGHUP Handler
 void sigup_handler(int sig, siginfo_t *si, void *unused)
 {
+    printf("sigup is sent\n");
     terminate(EXIT_SUCCESS);
 }
 
@@ -85,6 +87,18 @@ int main(int argc, char* argv[]){
     
     pthread_t thread_id;
     
+    // // For use to test send_packet
+    // int fd = open("test_output/a.txt", O_WRONLY);
+    // CHLA_PACKET_HEADER test;
+    // test.type = CHLA_LOGIN_PKT;
+    // test.payload_length = 999;
+    // test.msgid = 0;
+    // test.timestamp_nsec = 0;
+    // test.timestamp_sec = 0;
+    // proto_send_packet(fd, &test, NULL);
+    
+    
+    
     // Then we will enter a loop which accepts connections
     while(1)
     {
@@ -97,20 +111,16 @@ int main(int argc, char* argv[]){
         // Client connection failed, free and move on
         if(*(mallocConnFd) == -1)
         {
+            debug("connection failed with client");
             free(mallocConnFd);
         }
         // Connection success we will spawn a new thread that will call 
         else
         {
-            printf("accepted a connection\n");
+            debug("accepted a connection");
             pthread_create(&thread_id, NULL, chla_client_service, mallocConnFd);
         }
     }
-
-    // fprintf(stderr, "You have to finish implementing main() "
-	//     "before the server will function.\n");
-
-    // terminate(EXIT_FAILURE);
 }
 
 /*
