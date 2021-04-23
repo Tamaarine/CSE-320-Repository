@@ -98,7 +98,6 @@ int main(int argc, char* argv[]){
     // proto_send_packet(fd, &test, NULL);
     
     
-    
     // Then we will enter a loop which accepts connections
     while(1)
     {
