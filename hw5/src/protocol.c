@@ -85,6 +85,11 @@ int proto_recv_packet(int fd, CHLA_PACKET_HEADER *hdr, void **payload)
         {
             return -1;
         }
+        else if(ret == 0)
+        {
+            // EOF is encountered hence it is done reading
+            return -1;
+        }
         
         readByte += ret;
         debug("reading header %d", readByte);
