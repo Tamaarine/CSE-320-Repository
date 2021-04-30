@@ -19,6 +19,7 @@ USER *user_create(char *handle)
     if(semRet == -1)
     {
         debug("cannot initialize semaphore");
+        free(output);
         return NULL;
     }
     
