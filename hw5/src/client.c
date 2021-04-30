@@ -32,7 +32,7 @@ CLIENT *client_create(CLIENT_REGISTRY *creg, int fd)
     output->loginState = 0;     // Logged out initially
     output->mailbox = NULL;
     output->user = NULL;
-    output->referenceCount = 1; // 1 for the reference count initially
+    output->referenceCount = 0;
     
     // Initialize the semaphore
     int ret = sem_init(&output->mutex, 0, 1);
@@ -44,6 +44,9 @@ CLIENT *client_create(CLIENT_REGISTRY *creg, int fd)
         return NULL;
     }
     
+    // Reference it because it is newly created
+    client_ref(output, "for newly created client");
+    
     return output;
 }
 
@@ -52,8 +55,8 @@ CLIENT *client_ref(CLIENT *client, char *why)
     // Lock the client to be only access by this thread
     sem_wait(&client->mutex); 
     
-    client->referenceCount ++;
-    debug("client_ref increased: %s", why);
+    client->referenceCount++;
+    debug("Increase reference count on client %p (%d -> %d) for %s", client, client->referenceCount - 1, client->referenceCount, why);
     
     // Unlock the client to be modify by other threads
     sem_post(&client->mutex);
@@ -66,15 +69,23 @@ void client_unref(CLIENT *client, char *why)
     sem_wait(&client->mutex);       // Lock the client
     
     client->referenceCount --;      // Decrease the reference count
+    debug("Decrease reference count on client %p (%d -> %d) for %s", client, client->referenceCount + 1, client->referenceCount, why);
     
     if(client->referenceCount != 0)
+    {
         sem_post(&client->mutex);   // Unlock client if the referenceCount is not 0 yet
+    }
     else
     {
         // However if the referenceCount is 0 then we have to decrease reference
         // for the user and the mailbox that client references
-        user_unref(client->user, "Freeing client hence decrease user count");
-        mb_unref(client->mailbox, "Freeing client hence decrease mailbox count");
+        if(client->loginState == 1)
+        {
+            user_unref(client->user, "Unreferencing from client_unref should probably never occur");
+            mb_unref(client->mailbox, "Unreferencing from client_unref should probably never occur");
+        }
+        
+        debug("Freeing client %p", client);
         free(client);
     }
 }
@@ -188,8 +199,9 @@ int client_logout(CLIENT *client)
     // If the client is logged in, then log it out
     client->loginState = 0;
     
-    // Unreference and delete the USER and mailbox    
-    user_unref(client->user, "Logging out the client, hence unreference the USER");       // Unref the user
+    // Unreference and delete the USER and mailbox  
+    ureg_unregister(user_registry, user_get_handle(client->user));  
+    // user_unref(client->user, "Logging out the client, hence unreference the USER");       // Unref the user
     mb_unref(client->mailbox, "Logging out the client, hence unreference the mailbox");      // Unref the mailbox
     mb_shutdown(client->mailbox);       // Shutdown the mailbox
     client->mailbox = NULL;
