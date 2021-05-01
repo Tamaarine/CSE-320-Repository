@@ -203,7 +203,6 @@ void creg_shutdown_all(CLIENT_REGISTRY *cr)
         sem_wait(&shutdownSemaphore);
         clientCount--;
     }
-    // debug("finished you fuck");
     
     sem_post(&shutdownMutex);
 }
