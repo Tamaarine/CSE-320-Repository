@@ -44,7 +44,7 @@ USER *user_ref(USER *user, char *why)
 {
     sem_wait(&user->mutex);     // Lock it
     user->referenceCount ++;    // Increase the count
-    debug("why in user_ref %s", why); // Print the reason why it is incremented
+    debug("Increase reference count on user %p (%d -> %d) for %s", user, user->referenceCount - 1, user->referenceCount, why); // Print the reason why it is incremented
     sem_post(&user->mutex);     // Unlock it
     return user;
 }
@@ -53,13 +53,14 @@ void user_unref(USER *user, char *why)
 {
     sem_wait(&user->mutex);     // Lock it
     user->referenceCount --;    // Decrease the count
-    debug("why in user_unref %s", why);
+    debug("Decrease reference count on user %p (%d -> %d) for %s", user, user->referenceCount + 1, user->referenceCount, why); // Print the reason why it is incremented
     if(user->referenceCount != 0)
         sem_post(&user->mutex); // Unlock it if the referenceCount is not 0
     else
     {
         // However if it is 0 then we will have to free the user and the handle
         free(user->handle);     // Free the handle first
+        sem_destroy(&user->mutex);      // Destroy the mutex
         free(user);             // Then free user
     }
 }

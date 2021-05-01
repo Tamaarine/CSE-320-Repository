@@ -77,8 +77,7 @@ void client_unref(CLIENT *client, char *why)
     }
     else
     {
-        // However if the referenceCount is 0 then we have to decrease reference
-        // for the user and the mailbox that client references
+        // If referenceCount is 0 free client
         if(client->loginState == 1)
         {
             user_unref(client->user, "Unreferencing from client_unref should probably never occur");
@@ -86,6 +85,7 @@ void client_unref(CLIENT *client, char *why)
         }
         
         debug("Freeing client %p", client);
+        sem_destroy(&client->mutex);        // Destroy the mutex
         free(client);
     }
 }

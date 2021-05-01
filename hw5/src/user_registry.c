@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
+#include "debug.h"
 
 typedef struct user_registry_node
 {
@@ -42,6 +43,7 @@ USER_REGISTRY *ureg_init(void)
 
 void ureg_fini(USER_REGISTRY *ureg)
 {
+    debug("Finalize user registry");
     USER_REGISTRY_NODE * nodePtr = ureg->head.next;
     
     while(nodePtr != &ureg->head)
@@ -55,6 +57,7 @@ void ureg_fini(USER_REGISTRY *ureg)
     }
     
     // Then we finally free the dummy node. No copy of a handle so no need to free handle
+    sem_destroy(&ureg->mutex);  // Destroy the mutex
     free(ureg);
 }
 

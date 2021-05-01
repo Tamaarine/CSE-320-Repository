@@ -60,7 +60,7 @@ int main(int argc, char* argv[]){
         }
     }
     
-    printf("port is -%s-\n", portNumber);
+    debug("port is -%s-", portNumber);
     // Perform required initializations of the client_registry and
     // player_registry.
     user_registry = ureg_init();
