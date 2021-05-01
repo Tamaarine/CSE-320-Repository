@@ -142,6 +142,7 @@ void ureg_unregister(USER_REGISTRY *ureg, char *handle)
             userFound = 1;
             break;
         }
+        nodePtr = nodePtr->next;    // Stupid you didn't advance the pointer
     }
     
     // Only remove it if it is found in the linked list
