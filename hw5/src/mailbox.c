@@ -85,11 +85,12 @@ void mb_unref(MAILBOX *mb, char *why)
         MAILBOX_NODE * nodePtr = mb->head; 
         while(nodePtr != NULL)
         {
+            // If the mailboxEntry is a MESSAGE, must free the body
+            if(nodePtr->mailboxEntry->type == MESSAGE_ENTRY_TYPE)
+            {
+                free(nodePtr->mailboxEntry->content.message.body);
+            }
             free(nodePtr->mailboxEntry);    // Free the mailboxEntry that is in the node
-            
-            // Based on the type of the mailBoxEntry need to also free MESSAGE
-            // TODO
-            
             
             MAILBOX_NODE * tmp = nodePtr->next;
             free(nodePtr);          // Free the actual node
