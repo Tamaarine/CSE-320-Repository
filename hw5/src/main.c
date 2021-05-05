@@ -19,6 +19,9 @@
 
 static void terminate(int);
 
+// A global int pointer so that when the thread is terminated, the hanging accept can also be freed
+int * mallocFd;    
+
 // My own functions
 int strToInteger(char * strNum);
 int open_listenfd(char * port);
@@ -27,8 +30,9 @@ int open_listenfd(char * port);
 void sigup_handler(int sig, siginfo_t *si, void *unused)
 {
     printf("sigup is sent\n");
+    free(mallocFd);     // Free the malloced filedescriptor
     terminate(EXIT_SUCCESS);
-}
+}   
 
 /*
  * "Charla" chat server.
@@ -87,37 +91,26 @@ int main(int argc, char* argv[]){
     
     pthread_t thread_id;
     
-    // // For use to test send_packet
-    // int fd = open("test_output/a.txt", O_WRONLY);
-    // CHLA_PACKET_HEADER test;
-    // test.type = CHLA_LOGIN_PKT;
-    // test.payload_length = 999;
-    // test.msgid = 0;
-    // test.timestamp_nsec = 0;
-    // test.timestamp_sec = 0;
-    // proto_send_packet(fd, &test, NULL);
-    
-    
     // Then we will enter a loop which accepts connections
     while(1)
     {
         // Since we are going to be passing this to the thread, we need to malloc it
-        int * mallocConnFd = (int *)malloc(sizeof(int));
+        mallocFd = (int *)malloc(sizeof(int));
         
         // We don't care about the address of the connected clients
-        *(mallocConnFd) = accept(listenfd, NULL, NULL); 
+        *(mallocFd) = accept(listenfd, NULL, NULL); 
         
         // Client connection failed, free and move on
-        if(*(mallocConnFd) == -1)
+        if(*(mallocFd) == -1)
         {
             debug("connection failed with client");
-            free(mallocConnFd);
+            free(mallocFd);
         }
         // Connection success we will spawn a new thread that will call 
         else
         {
             debug("accepted a connection");
-            pthread_create(&thread_id, NULL, chla_client_service, mallocConnFd);
+            pthread_create(&thread_id, NULL, chla_client_service, mallocFd);
         }
     }
 }

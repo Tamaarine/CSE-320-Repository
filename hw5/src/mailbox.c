@@ -88,6 +88,7 @@ void mb_unref(MAILBOX *mb, char *why)
             // If the mailboxEntry is a MESSAGE, must free the body
             if(nodePtr->mailboxEntry->type == MESSAGE_ENTRY_TYPE)
             {
+                mb->hookFunc(nodePtr->mailboxEntry);
                 free(nodePtr->mailboxEntry->content.message.body);
             }
             free(nodePtr->mailboxEntry);    // Free the mailboxEntry that is in the node
@@ -208,12 +209,19 @@ MAILBOX_ENTRY *mb_next_entry(MAILBOX *mb)
     if(mb->defuncted == 1)
     {
         sem_post(&mb->mutex);   // Unlock and return NULL
+        debug("Mailbox %p has become defuncted return NULL", mb);
         return NULL;
     }
     
     // If it isn't defuncted, then we will actually remove the entry
     MAILBOX_NODE * outputNode = mb->head;
     MAILBOX_ENTRY * output = outputNode->mailboxEntry;
+    
+    // Decrement the sender's reference count
+    if(output->type == MESSAGE_ENTRY_TYPE && mb != output->content.message.from)
+    {
+        mb_unref(output->content.message.from, "received the message now, can unreference the mailbox from sender");
+    }
     
     // There is only one item in the queue
     if(mb->head == mb->tail)

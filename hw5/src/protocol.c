@@ -114,6 +114,7 @@ int proto_recv_packet(int fd, CHLA_PACKET_HEADER *hdr, void **payload)
             
             if(ret == -1)
             {
+                free(heapPayload);
                 return -1;
             }
             

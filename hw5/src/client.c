@@ -200,6 +200,7 @@ int client_logout(CLIENT *client)
     client->loginState = 0;
     
     // Unreference and delete the USER and mailbox  
+    user_unref(client->user, "being unreference in client_logout");
     ureg_unregister(user_registry, user_get_handle(client->user));  
     // user_unref(client->user, "Logging out the client, hence unreference the USER");       // Unref the user
     mb_unref(client->mailbox, "Logging out the client, hence unreference the mailbox");      // Unref the mailbox
@@ -291,6 +292,7 @@ int client_send_packet(CLIENT *user, CHLA_PACKET_HEADER *pkt, void *data)
 int client_send_ack(CLIENT *client, uint32_t msgid, void *data, size_t datalen)
 {
     CHLA_PACKET_HEADER * packet = (CHLA_PACKET_HEADER *)malloc(sizeof(CHLA_PACKET_HEADER));
+    memset(packet, 0, sizeof(CHLA_PACKET_HEADER));
     packet->type = CHLA_ACK_PKT;     // Type no need to be converted
     packet->payload_length = htonl(datalen);
     
@@ -318,6 +320,7 @@ int client_send_ack(CLIENT *client, uint32_t msgid, void *data, size_t datalen)
 int client_send_nack(CLIENT *client, uint32_t msgid)
 {
     CHLA_PACKET_HEADER * packet = (CHLA_PACKET_HEADER *)malloc(sizeof(CHLA_PACKET_HEADER));
+    memset(packet, 0, sizeof(CHLA_PACKET_HEADER));
     packet->type = CHLA_NACK_PKT;    // Type no need to be converted to network byte order
     
     // First we need to generate the system time
