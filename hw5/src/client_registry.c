@@ -200,6 +200,7 @@ void creg_shutdown_all(CLIENT_REGISTRY *cr)
     
     while(clientCount != 0)
     {
+        debug("clientCount is %d", clientCount);
         sem_wait(&shutdownSemaphore);
         clientCount--;
     }

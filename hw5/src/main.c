@@ -111,6 +111,7 @@ int main(int argc, char* argv[]){
         {
             debug("accepted a connection");
             pthread_create(&thread_id, NULL, chla_client_service, mallocFd);
+            pthread_detach(thread_id);      // Detach the client thread so that it won't become a memory leak -> But apparently it still does
         }
     }
 }

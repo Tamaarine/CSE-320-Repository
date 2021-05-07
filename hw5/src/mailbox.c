@@ -44,6 +44,8 @@ MAILBOX *mb_init(char *handle)
     strcpy(handleCpy, handle);      // Copy the handle for a private copy
     output->handle = handleCpy;
     
+    debug("mailbox %p being created with reference count (%d -> %d)", output, output->referenceCount -1 ,output->referenceCount);
+    
     return output;
 }
 
