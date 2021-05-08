@@ -90,7 +90,10 @@ void mb_unref(MAILBOX *mb, char *why)
             // If the mailboxEntry is a MESSAGE, must free the body
             if(nodePtr->mailboxEntry->type == MESSAGE_ENTRY_TYPE)
             {
-                mb->hookFunc(nodePtr->mailboxEntry);
+                if(mb->hookFunc != NULL)
+                {
+                    mb->hookFunc(nodePtr->mailboxEntry);
+                }
                 free(nodePtr->mailboxEntry->content.message.body);
             }
             free(nodePtr->mailboxEntry);    // Free the mailboxEntry that is in the node
