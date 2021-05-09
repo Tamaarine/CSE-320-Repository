@@ -9,17 +9,24 @@
 #include <time.h>
 #include <string.h>
 
-// void mailbox_discard_hook_function(MAILBOX_ENTRY * entry)
-// {
-//     entry->content.message.from
-// }
+void mailbox_discard_hook_function(MAILBOX_ENTRY * entry)
+{
+    mb_add_notice(entry->content.message.from, BOUNCE_NOTICE_TYPE, 0);
+}
 
 void * chla_mailbox_service(void * arg)
 {
-    CLIENT * clientPtr = (CLIENT *)arg;
+    CLIENT * clientPtr = client_ref((CLIENT *)arg, "receiived client pointer in mailbox");
     MAILBOX * mbPtr = client_get_mailbox(clientPtr, 0);         // This thread will be resposnible for decrementing the reference
     MAILBOX_ENTRY * retEntry;
     
+    if(mbPtr == NULL)
+    {
+        client_unref(clientPtr, "finished using the pointer in mailbox thread");
+        pthread_exit(NULL);
+    }
+    
+    mb_set_discard_hook(mbPtr, mailbox_discard_hook_function);
     while((retEntry = mb_next_entry(mbPtr)) != NULL)
     {
         CHLA_PACKET_HEADER packetToSent;
@@ -71,6 +78,7 @@ void * chla_mailbox_service(void * arg)
         }
     }
     
+    client_unref(clientPtr, "finished using the pointer in mailbox thread");
     mb_unref(mbPtr, "finished using the mailbox in mailbox thread");
     
     // The MAILBOX is marked defunct, the mailbox thread should just termiante
@@ -277,7 +285,11 @@ void *chla_client_service(void *arg)
                     // user not logged in hence we will NACK it
                     client_send_nack(theClient, packet.msgid);
                 }
-                free(payloadPtr);
+                if(payloadPtr != NULL)
+                {
+                    free(payloadPtr);
+                    payloadPtr = NULL;
+                }
                 break;
         }
         

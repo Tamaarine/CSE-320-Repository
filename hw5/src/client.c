@@ -203,8 +203,8 @@ int client_logout(CLIENT *client)
     user_unref(client->user, "being unreference in client_logout");
     ureg_unregister(user_registry, user_get_handle(client->user));  
     // user_unref(client->user, "Logging out the client, hence unreference the USER");       // Unref the user
-    mb_unref(client->mailbox, "Logging out the client, hence unreference the mailbox");      // Unref the mailbox
     mb_shutdown(client->mailbox);       // Shutdown the mailbox
+    mb_unref(client->mailbox, "Logging out the client, hence unreference the mailbox");      // Unref the mailbox
     client->mailbox = NULL;
     client->user = NULL;
     
