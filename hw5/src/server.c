@@ -44,8 +44,18 @@ void * chla_mailbox_service(void * arg)
             packetToSent.timestamp_sec = htonl(times.tv_sec);
             packetToSent.timestamp_nsec = htonl(times.tv_nsec);
             
-            client_send_packet(clientPtr, &packetToSent, retEntry->content.message.body);
-            client_send_ack(clientPtr, retEntry->content.message.msgid, NULL, 0);
+            int ret = client_send_packet(clientPtr, &packetToSent, retEntry->content.message.body);
+            if(ret == 0)
+            {
+                // Recevied
+                mb_add_notice(retEntry->content.message.from, RRCPT_NOTICE_TYPE, times.tv_sec);
+            }
+            else
+            {
+                // Bounced
+                mb_add_notice(retEntry->content.message.from, BOUNCE_NOTICE_TYPE, times.tv_sec);
+            }
+            
         }
         else
         {
@@ -76,6 +86,7 @@ void * chla_mailbox_service(void * arg)
             client_send_packet(clientPtr, &packetToSent, NULL);
             client_send_ack(clientPtr, retEntry->content.message.msgid, NULL, 0);
         }
+        free(retEntry);         // Free the MAILBOX_ENTRY
     }
     
     client_unref(clientPtr, "finished using the pointer in mailbox thread");
